@@ -9,6 +9,7 @@ use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -124,6 +125,30 @@ class StudentService
 
             $student->delete();
         });
+    }
+
+    /**
+     * Retrieve an entire class roster with recent attendance history.
+     *
+     * @return Collection<int, Student>
+     */
+    public function getStudentsByClass(string $className, ?string $section = null): Collection
+    {
+        $query = $this->student->newQuery()
+            ->with([
+                'primaryTeacher',
+                'attendances' => function ($attendanceQuery): void {
+                    $attendanceQuery->latest('attendance_date')->limit(30);
+                },
+            ])
+            ->where('class_name', $className)
+            ->orderBy('name');
+
+        if ($section !== null) {
+            $query->where('section', $section);
+        }
+
+        return $query->get();
     }
 
     /**

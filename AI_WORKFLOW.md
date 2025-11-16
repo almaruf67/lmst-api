@@ -1,3 +1,34 @@
+# AI Development Workflow
+
+This file documents how AI assistance (Copilot / GPT-5 mini) was used during development, the key prompts issued, and what was implemented manually.
+
+1) Where AI was used
+- Architectural planning and to-do breakdown for remaining phases (services, controllers, requests, endpoints).
+- Generating and reviewing service and controller code patterns (StudentService, AttendanceService, controllers).
+- Writing Pest feature tests for bulk attendance, student management, and the console report command.
+- Implementing the console command (`attendance:generate-report`) CSV output formatting and file persistence.
+- Event/listener scaffolding and notification payload design.
+
+2) Three representative prompts used
+- "Create a Laravel service that records bulk attendance with teacher-scoped authorization, caching, and event dispatch." — produced `AttendanceService` implementation and cache invalidation strategy.
+- "Write a console command `attendance:generate-report` that calls the attendance service and writes a CSV to storage with an optional path." — produced the CLI command code and CSV building helper.
+- "Provide Pest feature tests for bulk attendance and the generate-report command that assert caching, DB writes, and CSV output." — produced the tests under `tests/Feature/Attendance` and `tests/Feature/Console`.
+
+3) How AI improved speed
+- Accelerated boilerplate creation (service methods, controller endpoints, form requests, resources).
+- Reduced iteration time by generating well-structured tests and adhering to project coding conventions.
+- Helped ensure consistent response formatting using the existing `BaseController` + `JsonResponse` utilities.
+
+4) Manual vs AI-generated
+- Manual: high-level architecture decisions, verifying existing repository files, running tests, applying fixes and formatting, and final review.
+- AI-assisted / generated: service and controller scaffolding, validation rules, resource serialization, console command CSV builder, tests, and event listener stubs.
+
+Notes
+- All code changes were reviewed and formatted using `vendor/bin/pint --dirty` and validated by running the relevant Pest tests.
+- If you want a more detailed prompt log (full raw prompts), I can produce that file as well.
+
+---
+Generated on: 2025-11-16
 # AI Workflow Report
 
 _Last updated: November 16, 2025_

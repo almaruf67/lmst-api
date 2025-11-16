@@ -7,6 +7,7 @@ namespace App\Services\Auth;
 use App\Models\User;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\Date;
+use Illuminate\Support\Facades\Log;
 use Laravel\Sanctum\PersonalAccessToken;
 
 /**
@@ -108,12 +109,18 @@ class SanctumTokenService
     public function revokeTokens(User $user): bool
     {
         try {
-            $user->currentAccessToken()?->delete();
-            // Optionally, revoke all refresh tokens as well
-            $user->tokens()->whereJsonContains('abilities', 'refresh')->delete();
+            // Remove issued access/refresh tokens for this user (logs out all sessions)
+            $user->tokens()
+                ->whereIn('name', ['access_token', 'refresh_token'])
+                ->delete();
 
             return true;
-        } catch (\Throwable) {
+        } catch (\Throwable $exception) {
+            Log::error('Failed to revoke tokens', [
+                'user_id' => $user->getKey(),
+                'error' => $exception->getMessage(),
+            ]);
+
             return false;
         }
     }

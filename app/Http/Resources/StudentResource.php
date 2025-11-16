@@ -32,6 +32,7 @@ class StudentResource extends JsonResource
                     'name' => $this->primaryTeacher?->name,
                 ];
             }),
+            'attendances' => $this->whenLoaded('attendances', fn () => AttendanceResource::collection($this->attendances)),
             'created_at' => optional($this->created_at)->toIso8601String(),
             'updated_at' => optional($this->updated_at)->toIso8601String(),
         ];

@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
+use App\Enums\AttendanceStatus;
 use App\Enums\UserType;
+use App\Models\Attendance;
 use App\Models\Student;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -99,5 +101,70 @@ it('validates student payloads', function (): void {
     ]);
 
     $response->assertUnprocessable()
-        ->assertJsonValidationErrors(['name', 'student_id', 'class_name']);
+        ->assertJsonPath('data.name.0', 'The name field is required.')
+        ->assertJsonPath('data.student_id.0', 'The student id field is required.')
+        ->assertJsonPath('data.class_name.0', 'The class name field is required.');
+});
+
+it('returns class rosters with attendance history for admins', function (): void {
+    $admin = User::factory()->create([
+        'user_type' => UserType::Admin->value,
+    ]);
+
+    $students = Student::factory()->count(2)->create([
+        'class_name' => 'Grade 5',
+        'section' => 'A',
+    ]);
+
+    Attendance::factory()->create([
+        'student_id' => $students->first()->id,
+        'status' => AttendanceStatus::Present->value,
+        'attendance_date' => now()->toDateString(),
+        'recorded_by' => $admin->id,
+    ]);
+
+    Sanctum::actingAs($admin);
+
+    $response = $this->getJson('/api/class-rosters?class_name=Grade%205&section=A');
+
+    $response->assertOk()
+        ->assertJsonPath('data.class_name', 'Grade 5')
+        ->assertJsonCount(2, 'data.students');
+
+    $studentsPayload = collect($response->json('data.students'));
+    $firstStudentPayload = $studentsPayload->firstWhere('id', $students->first()->id);
+
+    expect($firstStudentPayload['attendances'][0]['status'] ?? null)
+        ->toBe(AttendanceStatus::Present->value);
+});
+
+it('limits teachers to their assigned class when requesting rosters', function (): void {
+    $teacher = User::factory()->create([
+        'user_type' => UserType::Teacher->value,
+        'class_name' => 'Grade 4',
+        'section' => 'B',
+    ]);
+
+    $ownStudent = Student::factory()->create([
+        'class_name' => 'Grade 4',
+        'section' => 'B',
+    ]);
+
+    $otherStudent = Student::factory()->create([
+        'class_name' => 'Grade 6',
+        'section' => 'A',
+    ]);
+
+    Sanctum::actingAs($teacher);
+
+    $response = $this->getJson('/api/class-rosters?class_name=Grade%206&section=A');
+
+    $response->assertOk()
+        ->assertJsonPath('data.class_name', 'Grade 4')
+        ->assertJsonPath('data.section', 'B')
+        ->assertJsonCount(1, 'data.students');
+
+    expect(collect($response->json('data.students'))->pluck('id'))
+        ->toContain($ownStudent->id)
+        ->not->toContain($otherStudent->id);
 });

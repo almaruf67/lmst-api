@@ -71,7 +71,7 @@ class AttendanceGenerateReportCommand extends Command
                 ]
             );
         } catch (\Throwable $exception) {
-            $this->error('Unable to generate attendance report: '.$exception->getMessage());
+            $this->error('Unable to generate attendance report: ' . $exception->getMessage());
             report($exception);
 
             return SymfonyCommand::FAILURE;
@@ -117,7 +117,7 @@ class AttendanceGenerateReportCommand extends Command
         fputcsv($handle, ['Date', 'Student Name', 'Student ID', 'Status', 'Note']);
 
         foreach ($report['records'] as $attendance) {
-            $status = $this->resolveStatusValue($attendance->status);
+            $status = Str::headline($this->resolveStatusValue($attendance->status));
 
             fputcsv($handle, [
                 $attendance->attendance_date?->toDateString(),
@@ -132,7 +132,7 @@ class AttendanceGenerateReportCommand extends Command
         fputcsv($handle, ['Totals By Status']);
 
         foreach ($report['summary']['totals_by_status'] as $status => $total) {
-            fputcsv($handle, [$status, $total]);
+            fputcsv($handle, [Str::headline($status), $total]);
         }
 
         fputcsv($handle, []);

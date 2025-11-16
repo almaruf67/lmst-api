@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Sanctum\PersonalAccessToken;
 use Tests\TestCase;
 
 uses(RefreshDatabase::class);
@@ -78,9 +79,8 @@ it('revokes token on logout', function (): void {
     $logoutResponse->assertOk()
         ->assertJsonPath('message', 'Logged out');
 
-    $this->withToken($tokens['access_token'])
-        ->getJson('/api/me')
-        ->assertUnauthorized();
+    expect(PersonalAccessToken::findToken($tokens['access_token']))->toBeNull();
+    expect(PersonalAccessToken::findToken($tokens['refresh_token']))->toBeNull();
 });
 
 it('returns authenticated user data', function (): void {

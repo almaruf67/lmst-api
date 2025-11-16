@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\API\BaseController;
+use App\Http\Requests\Student\ClassRosterRequest;
 use App\Http\Requests\Student\StoreStudentRequest;
 use App\Http\Requests\Student\UpdateStudentRequest;
 use App\Http\Resources\StudentResource;
@@ -56,6 +57,35 @@ class StudentController extends BaseController
             $this->formatPaginatedStudents($students),
             'My students retrieved'
         );
+    }
+
+    /**
+     * Return a full class roster for attendance interfaces.
+     */
+    public function classRoster(ClassRosterRequest $request): LaravelJsonResponse
+    {
+        $user = $request->user();
+        $validated = $request->validated();
+
+        $className = $validated['class_name'] ?? null;
+        $section = $validated['section'] ?? null;
+
+        if ($user && $user->isTeacher()) {
+            $className = $user->class_name;
+            $section = $user->section;
+        }
+
+        if ($className === null) {
+            return $this->sendError('Class assignment is required to load a roster.', [], 422);
+        }
+
+        $students = $this->studentService->getStudentsByClass($className, $section);
+
+        return $this->sendResponse([
+            'class_name' => $className,
+            'section' => $section,
+            'students' => StudentResource::collection($students),
+        ], 'Class roster retrieved');
     }
 
     /**

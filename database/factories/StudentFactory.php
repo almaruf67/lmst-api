@@ -24,6 +24,7 @@ class StudentFactory extends Factory
         return [
             'name' => fake()->name(),
             'student_id' => strtoupper(Str::random(3)).'-'.fake()->unique()->numberBetween(1000, 9999),
+            'slug' => Str::slug(fake()->unique()->sentence(3).' '.Str::random(4)),
             'class_name' => $className,
             'section' => fake()->randomElement(['A', 'B', 'C']),
             'photo' => null,

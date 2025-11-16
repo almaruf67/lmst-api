@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Models\Attendance;
 use App\Models\Student;
 use App\Models\User;
+use App\Policies\AttendancePolicy;
 use App\Policies\StudentPolicy;
 use Dedoc\Scramble\Scramble;
 use Dedoc\Scramble\Support\Generator\OpenApi;
@@ -30,6 +32,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Gate::policy(Student::class, StudentPolicy::class);
+        Gate::policy(Attendance::class, AttendancePolicy::class);
 
         $this->registerMonitoringGates();
 

@@ -7,6 +7,7 @@ namespace App\Http\Controllers\API;
 use App\Http\Requests\Attendance\AttendanceReportRequest;
 use App\Http\Requests\Attendance\BulkAttendanceRequest;
 use App\Http\Resources\AttendanceResource;
+use App\Models\Attendance;
 use App\Services\Attendance\AttendanceService;
 use Illuminate\Http\JsonResponse;
 
@@ -19,6 +20,8 @@ class AttendanceController extends BaseController
      */
     public function recordBulk(BulkAttendanceRequest $request): JsonResponse
     {
+        $this->authorize('record', Attendance::class);
+
         $attendances = $this->attendanceService->recordBulk($request->user(), $request->validated());
 
         return $this->sendResponse([
@@ -31,6 +34,8 @@ class AttendanceController extends BaseController
      */
     public function monthlyReport(AttendanceReportRequest $request): JsonResponse
     {
+        $this->authorize('viewMonthlyReport', Attendance::class);
+
         $report = $this->attendanceService->generateMonthlyReport($request->user(), $request->validated());
 
         return $this->sendResponse([
@@ -46,6 +51,8 @@ class AttendanceController extends BaseController
      */
     public function dashboardSummary(): JsonResponse
     {
+        $this->authorize('viewDashboard', Attendance::class);
+
         $summary = $this->attendanceService->getTodayDashboardSummary(request()->user());
 
         return $this->sendResponse($summary, 'Dashboard summary');

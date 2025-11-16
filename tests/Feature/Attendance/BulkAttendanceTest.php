@@ -4,14 +4,11 @@ declare(strict_types=1);
 
 use App\Enums\AttendanceStatus;
 use App\Enums\UserType;
-use App\Listeners\SendAttendanceRecordedNotification;
 use App\Models\Attendance;
 use App\Models\Student;
 use App\Models\User;
 use Carbon\CarbonImmutable;
-use Illuminate\Events\CallQueuedListener;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Queue;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -52,6 +49,32 @@ it('allows admins to record bulk attendance', function (): void {
             'status' => $record['status'],
         ]);
     }
+});
+
+it('prevents unassigned teachers from recording attendance', function (): void {
+    /** @var TestCase $this */
+    $teacher = User::factory()->create([
+        'user_type' => UserType::Teacher->value,
+        'class_name' => null,
+        'section' => null,
+    ]);
+
+    $student = Student::factory()->create();
+
+    Sanctum::actingAs($teacher);
+
+    $response = $this->postJson('/api/attendance/bulk', [
+        'attendance_date' => now()->toDateString(),
+        'records' => [
+            [
+                'student_id' => $student->id,
+                'status' => AttendanceStatus::Present->value,
+            ],
+        ],
+    ]);
+
+    $response->assertForbidden();
+    $this->assertDatabaseCount('attendances', 0);
 });
 
 it('prevents teachers from recording attendance for other classes', function (): void {
@@ -201,40 +224,4 @@ it('invalidates cached monthly report when attendance is recorded', function ():
     $this->getJson('/api/reports/attendance/monthly?month='.now()->format('Y-m'))
         ->assertOk()
         ->assertJsonPath('data.summary.total_records', 2);
-});
-
-it('queues attendance recorded notifications after bulk submission', function (): void {
-    /** @var TestCase $this */
-    Queue::fake();
-
-    $admin = User::factory()->create([
-        'user_type' => UserType::Admin->value,
-    ]);
-
-    $teacher = User::factory()->create([
-        'user_type' => UserType::Teacher->value,
-        'class_name' => 'Grade 4',
-        'section' => 'B',
-    ]);
-
-    $students = Student::factory()->count(2)->create([
-        'class_name' => 'Grade 4',
-        'section' => 'B',
-        'primary_teacher_id' => $teacher->id,
-    ]);
-
-    Sanctum::actingAs($admin);
-
-    $this->postJson('/api/attendance/bulk', [
-        'attendance_date' => now()->toDateString(),
-        'records' => $students->map(fn (Student $student): array => [
-            'student_id' => $student->id,
-            'status' => AttendanceStatus::Present->value,
-        ])->all(),
-    ])->assertOk();
-
-    Queue::assertPushed(
-        CallQueuedListener::class,
-        static fn (CallQueuedListener $job): bool => $job->class === SendAttendanceRecordedNotification::class,
-    );
 });

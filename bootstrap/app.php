@@ -15,13 +15,13 @@ use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
-        web: __DIR__ . '/../routes/web.php',
-        api: __DIR__ . '/../routes/api.php',
-        commands: __DIR__ . '/../routes/console.php',
+        web: __DIR__.'/../routes/web.php',
+        api: __DIR__.'/../routes/api.php',
+        commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
     ->withBroadcasting(
-        channels: __DIR__ . '/../routes/channels.php',
+        channels: __DIR__.'/../routes/channels.php',
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
@@ -92,5 +92,27 @@ return Application::configure(basePath: dirname(__DIR__))
                 $exception->getStatusCode(),
                 [$exception->getStatusCode()]
             )->withHeaders($exception->getHeaders());
+        });
+
+        $exceptions->renderable(static function (Throwable $exception, Request $request) {
+            if (! $request->expectsJson()) {
+                return null;
+            }
+
+            $statusCode = Response::HTTP_INTERNAL_SERVER_ERROR;
+            $headers = [];
+
+            if ($exception instanceof HttpExceptionInterface) {
+                $statusCode = $exception->getStatusCode();
+                $headers = $exception->getHeaders();
+            }
+
+            $message = $exception->getMessage() ?: (Response::$statusTexts[$statusCode] ?? 'Error');
+
+            return JsonResponse::error(
+                $message,
+                $statusCode,
+                [$statusCode]
+            )->withHeaders($headers);
         });
     })->create();

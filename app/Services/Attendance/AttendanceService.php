@@ -12,6 +12,7 @@ use App\Models\User;
 use BackedEnum;
 use Carbon\CarbonImmutable;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -27,6 +28,12 @@ use Illuminate\Support\Str;
  */
 class AttendanceService
 {
+    private const DASHBOARD_STATUS_COLORS = [
+        AttendanceStatus::Present->value => ['#16a34a', '#16a34a'],
+        AttendanceStatus::Absent->value => ['#dc2626', '#dc2626'],
+        AttendanceStatus::Late->value => ['#f97316', '#f97316'],
+    ];
+
     /**
      * Persist attendance entries in bulk for the provided user context.
      *
@@ -36,7 +43,9 @@ class AttendanceService
     public function recordBulk(User $user, array $payload): Collection
     {
         $attendanceDate = CarbonImmutable::parse($payload['attendance_date'])->startOfDay();
-        $records = collect($payload['records']);
+        $records = collect($payload['records'])
+            ->keyBy('student_id')
+            ->values();
 
         if ($records->isEmpty()) {
             return collect();
@@ -62,7 +71,7 @@ class AttendanceService
                 $attendance = Attendance::query()->updateOrCreate(
                     [
                         'student_id' => $student->getKey(),
-                        'attendance_date' => $attendanceDate->toDateString(),
+                        'attendance_date' => $attendanceDate->toDateTimeString(),
                     ],
                     [
                         'status' => $record['status'],
@@ -76,7 +85,7 @@ class AttendanceService
         });
 
         // Invalidate caches impacted by new attendance
-        $this->invalidateDashboardCaches($user);
+        $this->invalidateDashboardCaches($user, $students, $attendanceDate);
         $this->invalidateMonthlyReportCaches($user, $students, $attendanceDate);
 
         $this->dispatchBulkRecordedEvent($user, $attendanceDate, $students, $saved);
@@ -94,6 +103,8 @@ class AttendanceService
     {
         $month = CarbonImmutable::createFromFormat('Y-m', $filters['month'])->startOfMonth();
         $endOfMonth = $month->endOfMonth();
+        $startWindow = $month->startOfDay();
+        $endWindow = $endOfMonth->endOfDay();
 
         $classFilter = $user->isTeacher() ? $user->class_name : ($filters['class_name'] ?? null);
         $sectionFilter = $user->isTeacher() ? $user->section : ($filters['section'] ?? null);
@@ -104,43 +115,27 @@ class AttendanceService
 
         $ttl = (int) config('cache.monthly_report_ttl', 3600);
 
-        return Cache::remember($cacheKey, $ttl, function () use ($user, $month, $endOfMonth, $classFilter, $sectionFilter): array {
+        return Cache::remember($cacheKey, $ttl, function () use ($user, $month, $classFilter, $sectionFilter, $startWindow, $endWindow): array {
             $query = Attendance::query()
                 ->with(['student'])
-                ->whereBetween('attendance_date', [$month->toDateString(), $endOfMonth->toDateString()])
+                ->whereBetween('attendance_date', [$startWindow->toDateTimeString(), $endWindow->toDateTimeString()])
                 ->orderBy('attendance_date');
 
-            if ($user->isTeacher()) {
-                $query->whereHas('student', function ($studentQuery) use ($user): void {
-                    $studentQuery->where('class_name', $user->class_name);
-
-                    if ($user->section !== null) {
-                        $studentQuery->where('section', $user->section);
-                    }
-                });
-            } else {
-                if (! empty($classFilter)) {
-                    $query->whereHas('student', fn ($studentQuery) => $studentQuery->where('class_name', $classFilter));
-                }
-
-                if (! empty($sectionFilter)) {
-                    $query->whereHas('student', fn ($studentQuery) => $studentQuery->where('section', $sectionFilter));
-                }
-            }
+            $this->applyUserScope($query, $user, $classFilter, $sectionFilter);
 
             /** @var EloquentCollection<int, Attendance> $attendances */
             $attendances = $query->get();
 
             $totalsByStatus = collect(AttendanceStatus::cases())->mapWithKeys(
-                static fn (AttendanceStatus $status): array => [$status->value => 0]
+                static fn(AttendanceStatus $status): array => [$status->value => 0]
             );
 
             $summaryStatus = $attendances
-                ->groupBy(fn (Attendance $attendance): string => $this->resolveStatusValue($attendance->status))
+                ->groupBy(fn(Attendance $attendance): string => $this->resolveStatusValue($attendance->status))
                 ->map->count();
             $totalsByStatus = $totalsByStatus->merge($summaryStatus)->toArray();
 
-            $dailyTotals = $attendances->groupBy(fn (Attendance $attendance) => $attendance->attendance_date->toDateString())
+            $dailyTotals = $attendances->groupBy(fn(Attendance $attendance) => $attendance->attendance_date->toDateString())
                 ->map->count()
                 ->toArray();
 
@@ -158,6 +153,32 @@ class AttendanceService
                 'records' => $attendances,
             ];
         });
+    }
+
+    /**
+     * Calculate the present percentage for a student for the provided month.
+     */
+    public function calculateAttendancePercentage(Student $student, int $month): float
+    {
+        $startOfMonth = $this->resolveMonthFromInt($month);
+        $endOfMonth = $startOfMonth->endOfMonth();
+
+        $totals = Attendance::query()
+            ->selectRaw('status, COUNT(*) as aggregate')
+            ->where('student_id', $student->getKey())
+            ->whereBetween('attendance_date', [$startOfMonth->toDateString(), $endOfMonth->toDateString()])
+            ->groupBy('status')
+            ->pluck('aggregate', 'status');
+
+        $totalRecords = $totals->sum();
+
+        if ($totalRecords === 0) {
+            return 0.0;
+        }
+
+        $present = $totals[AttendanceStatus::Present->value] ?? 0;
+
+        return round(($present / $totalRecords) * 100, 2);
     }
 
     /**
@@ -207,7 +228,7 @@ class AttendanceService
         }
 
         $statusSummary = $records
-            ->groupBy(fn (Attendance $attendance): string => $this->resolveStatusValue($attendance->status))
+            ->groupBy(fn(Attendance $attendance): string => $this->resolveStatusValue($attendance->status))
             ->map->count()
             ->toArray();
 
@@ -230,55 +251,67 @@ class AttendanceService
     public function getTodayDashboardSummary(User $user): array
     {
         $today = CarbonImmutable::now()->startOfDay();
-        $cacheKey = $user->isAdmin()
-            ? sprintf('dashboard:admin:%s', $today->toDateString())
-            : sprintf('dashboard:teacher:%d:%s', $user->getKey(), $today->toDateString());
+        $rangeStart = $today->subDays(6)->startOfDay();
+        $rangeEnd = $today->endOfDay();
+        $cacheKey = $this->buildDashboardCacheKey($user, $today);
 
         $ttl = (int) config('cache.dashboard_ttl', 60);
 
-        return Cache::remember($cacheKey, $ttl, function () use ($user, $today): array {
+        return Cache::remember($cacheKey, $ttl, function () use ($user, $today, $rangeStart, $rangeEnd): array {
             $query = Attendance::query()
-                ->whereDate('attendance_date', $today->toDateString());
+                ->whereBetween('attendance_date', [$rangeStart->toDateTimeString(), $rangeEnd->toDateTimeString()])
+                ->with('student');
 
-            if ($user->isTeacher()) {
-                $query->whereHas('student', function ($studentQuery) use ($user): void {
-                    $studentQuery->where('class_name', $user->class_name);
-                    if ($user->section !== null) {
-                        $studentQuery->where('section', $user->section);
-                    }
-                });
-            }
+            $this->applyUserScope($query, $user);
 
             /** @var EloquentCollection<int, Attendance> $rows */
             $rows = $query->get();
 
-            $totalsByStatus = collect(AttendanceStatus::cases())
-                ->mapWithKeys(static fn (AttendanceStatus $s): array => [$s->value => 0])
-                ->merge($rows->groupBy(fn (Attendance $a) => $this->resolveStatusValue($a->status))->map->count())
-                ->toArray();
+            $todayRows = $rows->filter(
+                fn(Attendance $attendance): bool => $attendance->attendance_date->isSameDay($today)
+            );
 
-            $total = $rows->count();
+            $totalsByStatus = $this->mergeStatusBuckets($this->initializeStatusBuckets(), $todayRows);
+            $total = array_sum($totalsByStatus);
             $present = $totalsByStatus[AttendanceStatus::Present->value] ?? 0;
             $presentPercentage = $total > 0 ? round(($present / $total) * 100, 2) : 0.0;
+
+            $weeklyTrend = $this->buildWeeklyTrend($rows, $rangeStart, $today);
 
             return [
                 'date' => $today->toDateString(),
                 'total' => $total,
                 'totals_by_status' => $totalsByStatus,
                 'present_percentage' => $presentPercentage,
+                'weekly_trend' => $weeklyTrend,
+                'chart' => $this->formatChartData($weeklyTrend),
             ];
         });
     }
 
-    private function invalidateDashboardCaches(User $user): void
+    private function invalidateDashboardCaches(User $actor, EloquentCollection $students, CarbonImmutable $attendanceDate): void
     {
-        $date = CarbonImmutable::now()->startOfDay()->toDateString();
+        $dates = collect([
+            $attendanceDate->toDateString(),
+            CarbonImmutable::now()->startOfDay()->toDateString(),
+        ])->unique();
 
-        // Admin scope
-        Cache::forget(sprintf('dashboard:admin:%s', $date));
+        $teacherIds = $students->pluck('primary_teacher_id')
+            ->filter()
+            ->unique()
+            ->values();
 
-        // Current user (teacher or admin acting as recorder)
-        Cache::forget(sprintf('dashboard:teacher:%d:%s', $user->getKey(), $date));
+        if ($actor->isTeacher()) {
+            $teacherIds = $teacherIds->push($actor->getKey())->unique()->values();
+        }
+
+        foreach ($dates as $date) {
+            Cache::forget(sprintf('dashboard:admin:%s', $date));
+
+            foreach ($teacherIds as $teacherId) {
+                Cache::forget(sprintf('dashboard:teacher:%d:%s', $teacherId, $date));
+            }
+        }
     }
 
     /**
@@ -293,10 +326,10 @@ class AttendanceService
         // Global admin summary
         Cache::forget($this->buildAdminMonthlyKey($month, null, null));
 
-        $classCombos = $students->map(fn (Student $student): array => [
+        $classCombos = $students->map(fn(Student $student): array => [
             'class_name' => $student->class_name,
             'section' => $student->section,
-        ])->unique(fn (array $combo): string => ($combo['class_name'] ?? 'all').'|'.($combo['section'] ?? 'all'));
+        ])->unique(fn(array $combo): string => ($combo['class_name'] ?? 'all') . '|' . ($combo['section'] ?? 'all'));
 
         foreach ($classCombos as $combo) {
             Cache::forget($this->buildAdminMonthlyKey($month, $combo['class_name'], $combo['section']));
@@ -332,5 +365,126 @@ class AttendanceService
     private function slugValue(?string $value): string
     {
         return $value ? Str::slug($value) : 'all';
+    }
+
+    private function applyUserScope(Builder $query, User $user, ?string $classFilter = null, ?string $sectionFilter = null): void
+    {
+        if ($user->isTeacher()) {
+            $query->whereHas('student', function (Builder $studentQuery) use ($user): void {
+                $studentQuery->where('class_name', $user->class_name);
+
+                if ($user->section !== null) {
+                    $studentQuery->where('section', $user->section);
+                }
+            });
+
+            return;
+        }
+
+        if (! empty($classFilter)) {
+            $query->whereHas('student', fn(Builder $studentQuery) => $studentQuery->where('class_name', $classFilter));
+        }
+
+        if (! empty($sectionFilter)) {
+            $query->whereHas('student', fn(Builder $studentQuery) => $studentQuery->where('section', $sectionFilter));
+        }
+    }
+
+    private function initializeStatusBuckets(): array
+    {
+        return collect(AttendanceStatus::cases())
+            ->mapWithKeys(static fn(AttendanceStatus $status): array => [$status->value => 0])
+            ->toArray();
+    }
+
+    /**
+     * @param  iterable<int, Attendance>  $attendances
+     */
+    private function mergeStatusBuckets(array $buckets, iterable $attendances): array
+    {
+        foreach ($attendances as $attendance) {
+            $status = $this->resolveStatusValue($attendance->status);
+            $buckets[$status] = ($buckets[$status] ?? 0) + 1;
+        }
+
+        return $buckets;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function buildWeeklyTrend(EloquentCollection $records, CarbonImmutable $start, CarbonImmutable $end): array
+    {
+        $trend = [];
+        for ($day = $start; $day->lte($end); $day = $day->addDay()) {
+            $dayRows = $records->filter(
+                static fn(Attendance $attendance): bool => $attendance->attendance_date->isSameDay($day)
+            );
+
+            $totals = $this->mergeStatusBuckets($this->initializeStatusBuckets(), $dayRows);
+
+            $trend[] = [
+                'date' => $day->toDateString(),
+                'totals_by_status' => $totals,
+                'total' => array_sum($totals),
+            ];
+        }
+
+        return $trend;
+    }
+
+    private function formatChartData(array $weeklyTrend): array
+    {
+        $labels = array_column($weeklyTrend, 'date');
+
+        $datasets = collect(AttendanceStatus::cases())->map(function (AttendanceStatus $status) use ($weeklyTrend): array {
+            $colors = self::DASHBOARD_STATUS_COLORS[$status->value] ?? ['#2563eb', '#2563eb'];
+
+            return [
+                'label' => Str::headline($status->value),
+                'data' => array_map(
+                    static fn(array $day): int => $day['totals_by_status'][$status->value] ?? 0,
+                    $weeklyTrend
+                ),
+                'backgroundColor' => $colors[0],
+                'borderColor' => $colors[1],
+                'tension' => 0.3,
+                'fill' => 'origin',
+            ];
+        })->values()->all();
+
+        return [
+            'labels' => $labels,
+            'datasets' => $datasets,
+        ];
+    }
+
+    private function buildDashboardCacheKey(User $user, CarbonImmutable $today): string
+    {
+        if ($user->isAdmin()) {
+            return sprintf('dashboard:admin:%s', $today->toDateString());
+        }
+
+        return sprintf('dashboard:teacher:%d:%s', $user->getKey() ?? 0, $today->toDateString());
+    }
+
+    private function resolveMonthFromInt(int $month): CarbonImmutable
+    {
+        $value = (string) $month;
+
+        if (strlen($value) === 6) {
+            $year = (int) substr($value, 0, 4);
+            $monthNumber = (int) substr($value, -2);
+        } else {
+            $year = CarbonImmutable::now()->year;
+            $monthNumber = $month;
+        }
+
+        if ($monthNumber < 1 || $monthNumber > 12) {
+            $monthNumber = CarbonImmutable::now()->month;
+            $year = CarbonImmutable::now()->year;
+        }
+
+        return CarbonImmutable::create($year, $monthNumber, 1)->startOfMonth();
     }
 }
