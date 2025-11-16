@@ -112,6 +112,7 @@ app/Services/
 │   └── StudentService.php         # CRUD, filtering, photos
 └── Attendance/
     └── AttendanceService.php      # Bulk recording, reports
+        # Also exposes getTodayDashboardSummary() with caching
 ```
 
 ---
@@ -213,6 +214,16 @@ GET    /api/me               # Get authenticated user
 GET    /api/students              # List (admin: all, teacher: filtered)
 POST   /api/students              # Create (admin only)
 GET    /api/students/{id}         # View single
+
+### Dashboard
+GET    /api/dashboard/summary     # Today’s summary (role-aware, cached)
+
+Caching Keys:
+- admin: `dashboard:admin:YYYY-MM-DD`
+- teacher: `dashboard:teacher:{user_id}:YYYY-MM-DD`
+
+TTL:
+- `config('cache.dashboard_ttl', 60)` seconds (set via `DASHBOARD_CACHE_TTL`)
 PUT    /api/students/{id}         # Update (admin only)
 DELETE /api/students/{id}         # Delete (admin only)
 GET    /api/my-students           # Teacher's class (auto-filtered)

@@ -5,8 +5,8 @@ namespace App\Traits;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Gd\Driver;
+use Intervention\Image\ImageManager;
 
 /**
  * Image Optimizable Trait
@@ -14,6 +14,7 @@ use Intervention\Image\Drivers\Gd\Driver;
  * Handles image upload, optimization, and storage with UUID-based flat structure.
  *
  * @context Use this trait in models that have image uploads (Student, User, etc.)
+ *
  * @pattern Flat UUID structure for scalability and CDN-friendliness
  */
 trait ImageOptimizable
@@ -21,11 +22,11 @@ trait ImageOptimizable
     /**
      * Upload and optimize image
      *
-     * @param UploadedFile $file The uploaded image file
-     * @param string $directory The storage directory (e.g., 'students', 'users')
-     * @param int $maxWidth Maximum width in pixels (default: 500)
-     * @param int $maxHeight Maximum height in pixels (default: 500)
-     * @param int $quality JPEG quality 0-100 (default: 85)
+     * @param  UploadedFile  $file  The uploaded image file
+     * @param  string  $directory  The storage directory (e.g., 'students', 'users')
+     * @param  int  $maxWidth  Maximum width in pixels (default: 500)
+     * @param  int  $maxHeight  Maximum height in pixels (default: 500)
+     * @param  int  $quality  JPEG quality 0-100 (default: 85)
      * @return string The stored filename (UUID.jpg)
      */
     public function uploadAndOptimizeImage(
@@ -36,10 +37,10 @@ trait ImageOptimizable
         int $quality = 85
     ): string {
         // Generate UUID filename
-        $filename = Str::uuid() . '.jpg';
+        $filename = Str::uuid().'.jpg';
 
         // Create image manager instance with GD driver
-        $manager = new ImageManager(new Driver());
+        $manager = new ImageManager(new Driver);
 
         // Read and process the image
         $image = $manager->read($file->getRealPath());
@@ -62,13 +63,13 @@ trait ImageOptimizable
     /**
      * Delete image from storage
      *
-     * @param string|null $filename The filename to delete
-     * @param string $directory The storage directory
+     * @param  string|null  $filename  The filename to delete
+     * @param  string  $directory  The storage directory
      * @return bool Success status
      */
     public function deleteImage(?string $filename, string $directory): bool
     {
-        if (!$filename) {
+        if (! $filename) {
             return false;
         }
 
@@ -84,13 +85,13 @@ trait ImageOptimizable
     /**
      * Get public URL for image
      *
-     * @param string|null $filename The filename
-     * @param string $directory The storage directory
+     * @param  string|null  $filename  The filename
+     * @param  string  $directory  The storage directory
      * @return string|null The public URL or null
      */
     public function getImageUrl(?string $filename, string $directory): ?string
     {
-        if (!$filename) {
+        if (! $filename) {
             return null;
         }
 
@@ -100,12 +101,12 @@ trait ImageOptimizable
     /**
      * Replace existing image with new one
      *
-     * @param UploadedFile $file New image file
-     * @param string|null $oldFilename Old filename to delete
-     * @param string $directory Storage directory
-     * @param int $maxWidth Maximum width
-     * @param int $maxHeight Maximum height
-     * @param int $quality JPEG quality
+     * @param  UploadedFile  $file  New image file
+     * @param  string|null  $oldFilename  Old filename to delete
+     * @param  string  $directory  Storage directory
+     * @param  int  $maxWidth  Maximum width
+     * @param  int  $maxHeight  Maximum height
+     * @param  int  $quality  JPEG quality
      * @return string New filename
      */
     public function replaceImage(

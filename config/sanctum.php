@@ -49,6 +49,10 @@ return [
 
     'expiration' => null,
 
+    // Custom LMST API token expiries (minutes)
+    'access_token_expiry' => env('SANCTUM_ACCESS_TOKEN_EXPIRY', 60),
+    'refresh_token_expiry' => env('SANCTUM_REFRESH_TOKEN_EXPIRY', 43200),
+
     /*
     |--------------------------------------------------------------------------
     | Token Prefix
