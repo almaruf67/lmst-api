@@ -8,6 +8,7 @@ use App\Enums\UserType;
 use App\Events\BulkAttendanceRecorded;
 use App\Models\User;
 use App\Notifications\AttendanceRecordedNotification;
+use App\Services\Notification\NotificationService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Support\Collection;
@@ -17,13 +18,15 @@ class SendAttendanceRecordedNotification implements ShouldQueue
 {
     use InteractsWithQueue;
 
+    public function __construct(private readonly NotificationService $notificationService) {}
+
     /**
      * Handle the event.
      */
     public function handle(BulkAttendanceRecorded $event): void
     {
         $recipients = $this->resolveRecipients($event)
-            ->reject(static fn (User $user): bool => $user->is($event->actor));
+            ->reject(static fn(User $user): bool => $user->is($event->actor));
 
         if ($recipients->isEmpty()) {
             return;
@@ -46,7 +49,7 @@ class SendAttendanceRecordedNotification implements ShouldQueue
             '%s recorded attendance for %s%s (%d students).',
             $event->actor->name,
             $event->className ?? 'the selected class',
-            $event->section ? ' - Section '.$event->section : '',
+            $event->section ? ' - Section ' . $event->section : '',
             $event->recordCount,
         );
 
@@ -54,6 +57,17 @@ class SendAttendanceRecordedNotification implements ShouldQueue
             $recipients,
             new AttendanceRecordedNotification($message, $payload)
         );
+
+        $recipients->each(function (User $recipient) use ($message, $payload): void {
+            $this->notificationService->create(
+                user: $recipient,
+                type: 'attendance.recorded',
+                title: 'Attendance Recorded',
+                message: $message,
+                data: ['context' => $payload],
+                priority: 'medium'
+            );
+        });
     }
 
     /**

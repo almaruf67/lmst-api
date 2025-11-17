@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Enums\AttendanceStatus;
 use App\Enums\NotificationAudience;
 use App\Models\AppNotification;
 use App\Models\Student;
@@ -287,4 +288,72 @@ it('notifies all admins when a teacher updates a student', function (): void {
             'type' => 'student.updated',
         ]);
     }
+});
+
+it('creates admin notifications when a teacher records attendance', function (): void {
+    /** @var TestCase $this */
+    $admins = User::factory()->count(2)->admin()->create();
+    $teacher = User::factory()->teacher('Grade 4', 'B')->create();
+
+    $students = Student::factory()->count(2)->create([
+        'class_name' => 'Grade 4',
+        'section' => 'B',
+        'primary_teacher_id' => $teacher->id,
+    ]);
+
+    Sanctum::actingAs($teacher);
+
+    $this->postJson(api('attendance/bulk'), [
+        'attendance_date' => now()->toDateString(),
+        'records' => $students->map(fn(Student $student): array => [
+            'student_id' => $student->id,
+            'status' => AttendanceStatus::Present->value,
+        ])->all(),
+    ])->assertOk();
+
+    foreach ($admins as $admin) {
+        $this->assertDatabaseHas('app_notifications', [
+            'user_id' => $admin->id,
+            'type' => 'attendance.recorded',
+            'title' => 'Attendance Recorded',
+        ]);
+    }
+
+    $this->assertDatabaseMissing('app_notifications', [
+        'user_id' => $teacher->id,
+        'type' => 'attendance.recorded',
+    ]);
+});
+
+it('creates teacher notifications when an admin records attendance', function (): void {
+    /** @var TestCase $this */
+    $admin = User::factory()->admin()->create();
+    $teacher = User::factory()->teacher('Grade 5', 'A')->create();
+
+    $students = Student::factory()->count(2)->create([
+        'class_name' => 'Grade 5',
+        'section' => 'A',
+        'primary_teacher_id' => $teacher->id,
+    ]);
+
+    Sanctum::actingAs($admin);
+
+    $this->postJson(api('attendance/bulk'), [
+        'attendance_date' => now()->toDateString(),
+        'records' => $students->map(fn(Student $student): array => [
+            'student_id' => $student->id,
+            'status' => AttendanceStatus::Late->value,
+        ])->all(),
+    ])->assertOk();
+
+    $this->assertDatabaseHas('app_notifications', [
+        'user_id' => $teacher->id,
+        'type' => 'attendance.recorded',
+        'title' => 'Attendance Recorded',
+    ]);
+
+    $this->assertDatabaseMissing('app_notifications', [
+        'user_id' => $admin->id,
+        'type' => 'attendance.recorded',
+    ]);
 });
