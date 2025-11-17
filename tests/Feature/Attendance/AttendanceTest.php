@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Enums\AttendanceStatus;
+use App\Exports\Attendance\MonthlyAttendanceExport;
 use App\Models\Attendance;
 use App\Models\Student;
 use App\Models\User;
@@ -11,6 +12,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Testing\Fluent\AssertableJson;
 use Laravel\Sanctum\Sanctum;
+use Maatwebsite\Excel\Facades\Excel;
 
 use function Pest\Laravel\get;
 use function Pest\Laravel\getJson;
@@ -174,4 +176,29 @@ it('returns structured json when exporting the monthly report as json', function
 
     expect($response->headers->get('content-disposition'))
         ->toContain('.json');
+});
+
+it('downloads a formatted excel workbook when requesting the monthly report as excel', function (): void {
+    Excel::fake();
+
+    $admin = User::factory()->admin()->create();
+    $student = Student::factory()->create();
+
+    Attendance::factory()->create([
+        'student_id' => $student->id,
+        'attendance_date' => now()->startOfMonth()->toDateString(),
+        'status' => AttendanceStatus::Present->value,
+    ]);
+
+    Sanctum::actingAs($admin);
+
+    $month = now()->format('Y-m');
+
+    get(api('reports/attendance/monthly?month=' . $month . '&format=excel'))
+        ->assertOk();
+
+    Excel::assertDownloaded(
+        sprintf('attendance-report-%s.xlsx', $month),
+        fn($export) => $export instanceof MonthlyAttendanceExport
+    );
 });
