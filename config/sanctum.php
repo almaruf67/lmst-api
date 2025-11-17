@@ -15,12 +15,15 @@ return [
     |
     */
 
-    'stateful' => explode(',', env('SANCTUM_STATEFUL_DOMAINS', sprintf(
-        '%s%s',
-        'localhost,localhost:3000,127.0.0.1,127.0.0.1:8000,::1',
+    'stateful' => explode(',', env('SANCTUM_STATEFUL_DOMAINS', implode(',', array_filter([
+        'localhost',
+        'localhost:3000',
+        '127.0.0.1',
+        '127.0.0.1:8000',
+        '::1',
         Sanctum::currentApplicationUrlWithPort(),
-        // Sanctum::currentRequestHost(),
-    ))),
+        Sanctum::currentRequestHost(),
+    ])))),
 
     /*
     |--------------------------------------------------------------------------
@@ -48,6 +51,10 @@ return [
     */
 
     'expiration' => null,
+
+    // Custom LMST API token expiries (minutes)
+    'access_token_expiry' => env('SANCTUM_ACCESS_TOKEN_EXPIRY', 60),
+    'refresh_token_expiry' => env('SANCTUM_REFRESH_TOKEN_EXPIRY', 43200),
 
     /*
     |--------------------------------------------------------------------------

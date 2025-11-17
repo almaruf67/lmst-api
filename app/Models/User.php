@@ -1,16 +1,29 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Enums\UserType;
+use App\Traits\Loggable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Storage;
+use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, Loggable, Notifiable, SoftDeletes;
+
+    /**
+     * @var list<string>
+     */
+    protected $appends = ['avatar_url'];
 
     /**
      * The attributes that are mass assignable.
@@ -21,6 +34,17 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'user_type',
+        'phone',
+        'class_name',
+        'section',
+        'employee_code',
+        'subject_specialization',
+        'qualification',
+        'date_of_joining',
+        'emergency_contact_name',
+        'emergency_contact_phone',
+        'profile_photo_path',
     ];
 
     /**
@@ -43,6 +67,70 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'user_type' => UserType::class,
+            'date_of_joining' => 'date',
         ];
+    }
+
+    /**
+     * Determine if the user is an admin.
+     */
+    public function isAdmin(): bool
+    {
+        return $this->user_type === UserType::Admin;
+    }
+
+    /**
+     * Determine if the user is a teacher.
+     */
+    public function isTeacher(): bool
+    {
+        return $this->user_type === UserType::Teacher;
+    }
+
+    /**
+     * Students assigned to the user.
+     *
+     * @return HasMany<Student>
+     */
+    public function students(): HasMany
+    {
+        return $this->hasMany(Student::class, 'primary_teacher_id');
+    }
+
+    /**
+     * Attendance records submitted by the user.
+     *
+     * @return HasMany<Attendance>
+     */
+    public function recordedAttendances(): HasMany
+    {
+        return $this->hasMany(Attendance::class, 'recorded_by');
+    }
+
+    /**
+     * Channel for broadcast notifications directed to the user.
+     */
+    public function receivesBroadcastNotificationsOn(): string
+    {
+        return sprintf('users.%d', $this->getKey());
+    }
+
+    public function getAvatarUrlAttribute(): ?string
+    {
+        $path = $this->profile_photo_path;
+
+        if (! $path) {
+            return null;
+        }
+
+        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+            return $path;
+        }
+
+        /** @var FilesystemAdapter $disk */
+        $disk = Storage::disk('public');
+
+        return $disk->url($path);
     }
 }

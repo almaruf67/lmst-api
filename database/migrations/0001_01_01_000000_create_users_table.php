@@ -1,5 +1,8 @@
 <?php
 
+declare(strict_types=1);
+
+use App\Enums\UserType;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -17,6 +20,26 @@ return new class extends Migration
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
+            $table->string('user_type')->default(UserType::Teacher->value);
+            $table->string('phone', 20)->nullable();
+            $table->string('class_name')->nullable();
+            $table->string('section')->nullable();
+            $table->string('employee_code')->nullable()->unique();
+            $table->string('subject_specialization')->nullable();
+            $table->string('qualification')->nullable();
+            $table->date('date_of_joining')->nullable();
+            $table->string('emergency_contact_name')->nullable();
+            $table->string('emergency_contact_phone', 20)->nullable();
+            $table->foreignId('created_by')
+                ->nullable()
+                ->constrained('users')
+                ->nullOnDelete();
+            $table->foreignId('updated_by')
+                ->nullable()
+                ->constrained('users')
+                ->nullOnDelete();
+            $table->string('created_ip', 45)->nullable();
+            $table->string('updated_ip', 45)->nullable();
             $table->rememberToken();
             $table->timestamps();
         });

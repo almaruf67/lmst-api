@@ -114,4 +114,8 @@ return [
 
     'prefix' => env('CACHE_PREFIX', Str::slug((string) env('APP_NAME', 'laravel')).'-cache-'),
 
+    // Custom LMST API cache TTLs (in seconds)
+    'dashboard_ttl' => (int) env('DASHBOARD_CACHE_TTL', 60),
+    'monthly_report_ttl' => (int) env('MONTHLY_REPORT_CACHE_TTL', 3600),
+
 ];
