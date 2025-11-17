@@ -355,7 +355,7 @@
 ### 4.7 Caching Strategy
 **MCP**: `search-docs queries: ["redis caching", "cache tags"]`
 
- - [ ] Update `AttendanceService` for caching:
+ - [x] Update `AttendanceService` for caching:
   - [x] Cache dashboard summary (configurable TTL)
   - [x] Cache monthly reports (1 hour)
   - [x] User-specific cache keys
@@ -490,6 +490,46 @@
 - [ ] ✅ Bulk attendance < 1s for 30 students
 - [ ] ✅ No N+1 queries detected
 - [ ] ✅ Photos optimized to ~200KB
+
+---
+
+## Phase 7: Frontend Integration (Nuxt 4 SPA)
+
+### 7.1 Environment & API Alignment
+- [x] Clone/update `/home/almaruf67/Codes/Nuxt/lmst-front` and run `pnpm install`
+- [x] Create `.env` with `NUXT_PUBLIC_API_BASE` pointing to LMST API (default `http://localhost:8000/api/v1`)
+- [x] Document dev commands (`pnpm dev`, `pnpm preview`, `pnpm lint`, `pnpm typecheck`)
+- [x] Verify Tailwind entry at `app/assets/css/main.css` plus layout shell readiness
+
+### 7.2 Shared Infrastructure
+- [x] Create Axios composable/plugin with auth header + error normalization similar to job-portal admin
+- [x] Add global toast/notification store (Pinia) leveraging job-portal notification logic but restyled to LMST theme
+- [x] Implement request/response interceptors for retry on 401 + redirect to `/login`
+- [x] Ensure runtime config exposes `apiBase`, `assetBase`, and websocket endpoints if needed
+
+### 7.3 Students Experience Integration
+- [x] Replace mock student data with real `/students`, `/my-students` endpoints via `useStudents()` composable
+- [x] Import job-portal admin custom table patterns (server-driven pagination, column visibility, filter chips) into `StudentList.vue`
+- [x] Wire filters (class, section, search) + persistent query params; support CSV export trigger once backend ready
+- [x] Add create/edit modals calling LMST API + photo upload progress indicators
+
+### 7.4 Attendance Experience Integration
+- [x] Connect `app/pages/attendance/index.vue` to `/attendance/bulk` + `/reports/attendance/monthly`
+- [x] Reuse job-portal bulk action UX: multi-select rows, sticky toolbar, segmented status buttons
+- [x] Keep bulk state in `app/stores/attendance.ts` with optimistic updates + rollback on failure
+- [x] Surface percentage + caching indicators using `useAttendance()` composable
+
+### 7.5 Dashboard & Notifications
+- [x] Fetch `/dashboard/summary` + `/reports/attendance/monthly` to power cards + charts
+- [x] Implement Chart.js (or lightweight alternative) using job-portal dashboard card patterns but LMST colors
+- [x] Build notification center component referencing job-portal admin functionality (batch mark-as-read, priority badges) while matching LMST UI kit
+- [x] Add global snackbar/toast for backend-triggered alerts (attendance export ready, etc.)
+
+### 7.6 QA & Automation
+- [ ] Add happy-path Cypress/Playwright smoke covering students, attendance, dashboard flows
+- [ ] Run `pnpm lint`, `pnpm typecheck`, `pnpm test` (unit) before merge
+- [ ] Document integration steps in `lmst-front/README.md` + mirror summary in LMST API checklist
+- [ ] Capture screenshots/GIFs showing parity with job-portal admin table + notification UX
 
 ---
 

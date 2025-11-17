@@ -26,7 +26,7 @@ it('allows admins to view all students with pagination metadata', function (): v
 
     Sanctum::actingAs($admin);
 
-    $response = getJson('/api/students?per_page=50');
+    $response = getJson(api('students?per_page=50'));
 
     $response->assertOk()
         ->assertJsonPath('data.meta.total', $students->count());
@@ -50,7 +50,7 @@ it('allows teachers to view only students from their class roster', function ():
 
     Sanctum::actingAs($teacher);
 
-    $response = getJson('/api/students');
+    $response = getJson(api('students'));
     $response->assertOk();
 
     expect(collect($response->json('data.students'))->pluck('id'))
@@ -68,7 +68,7 @@ it('prevents teachers from accessing students outside their assignment', functio
 
     Sanctum::actingAs($teacher);
 
-    getJson("/api/students/{$student->id}")
+    getJson(api("students/{$student->id}"))
         ->assertForbidden();
 });
 
@@ -89,7 +89,7 @@ it('allows admins to create students with optimized photos and generated slugs',
         'photo' => UploadedFile::fake()->image('student.jpg', 1200, 1200),
     ];
 
-    $response = postJson('/api/students', $payload);
+    $response = postJson(api('students'), $payload);
 
     $response->assertCreated()
         ->assertJsonPath('data.slug', Str::slug('Jane Carter STD-2001'))
@@ -112,7 +112,7 @@ it('prevents unassigned teachers from creating students', function (): void {
 
     Sanctum::actingAs($teacher);
 
-    postJson('/api/students', [
+    postJson(api('students'), [
         'name' => 'Sam Lee',
         'student_id' => 'STD-3001',
         'class_name' => 'Grade 3',
@@ -125,13 +125,13 @@ it('generates unique slugs even when student names repeat', function (): void {
 
     $name = 'Repeat Name';
 
-    postJson('/api/students', [
+    postJson(api('students'), [
         'name' => $name,
         'student_id' => 'STD-4001',
         'class_name' => 'Grade 2',
     ])->assertCreated();
 
-    postJson('/api/students', [
+    postJson(api('students'), [
         'name' => $name,
         'student_id' => 'STD-4002',
         'class_name' => 'Grade 2',
@@ -163,7 +163,7 @@ it('returns class rosters with limited attendance history for admins', function 
 
     Sanctum::actingAs($admin);
 
-    $response = getJson('/api/class-rosters?class_name=Grade%205&section=A');
+    $response = getJson(api('class-rosters?class_name=Grade%205&section=A'));
 
     $response->assertOk()
         ->assertJsonPath('data.class_name', 'Grade 5');
@@ -189,7 +189,7 @@ it('limits teachers to their assigned class when requesting rosters', function (
 
     Sanctum::actingAs($teacher);
 
-    $response = getJson('/api/class-rosters?class_name=Grade%206&section=A');
+    $response = getJson(api('class-rosters?class_name=Grade%206&section=A'));
 
     $response->assertOk()
         ->assertJsonPath('data.class_name', 'Grade 4')

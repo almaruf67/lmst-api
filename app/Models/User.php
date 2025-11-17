@@ -9,14 +9,21 @@ use App\Traits\Loggable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasApiTokens, HasFactory, Loggable, Notifiable, SoftDeletes;
+
+    /**
+     * @var list<string>
+     */
+    protected $appends = ['avatar_url'];
 
     /**
      * The attributes that are mass assignable.
@@ -37,6 +44,7 @@ class User extends Authenticatable
         'date_of_joining',
         'emergency_contact_name',
         'emergency_contact_phone',
+        'profile_photo_path',
     ];
 
     /**
@@ -106,5 +114,23 @@ class User extends Authenticatable
     public function receivesBroadcastNotificationsOn(): string
     {
         return sprintf('users.%d', $this->getKey());
+    }
+
+    public function getAvatarUrlAttribute(): ?string
+    {
+        $path = $this->profile_photo_path;
+
+        if (! $path) {
+            return null;
+        }
+
+        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+            return $path;
+        }
+
+        /** @var FilesystemAdapter $disk */
+        $disk = Storage::disk('public');
+
+        return $disk->url($path);
     }
 }

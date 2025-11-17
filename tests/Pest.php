@@ -12,7 +12,7 @@
 */
 
 pest()->extend(Tests\TestCase::class)
- // ->use(Illuminate\Foundation\Testing\RefreshDatabase::class)
+    // ->use(Illuminate\Foundation\Testing\RefreshDatabase::class)
     ->in('Feature');
 
 /*
@@ -44,4 +44,11 @@ expect()->extend('toBeOne', function () {
 function something()
 {
     // ..
+}
+
+function api(string $path = ''): string
+{
+    $suffix = $path !== '' ? '/'.ltrim($path, '/') : '';
+
+    return '/api/v1'.$suffix;
 }

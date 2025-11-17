@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Http\Requests\Student;
 
 use App\Models\Student;
+use App\Support\ClassroomOptions;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class ClassRosterRequest extends FormRequest
 {
@@ -26,12 +28,12 @@ class ClassRosterRequest extends FormRequest
     {
         $isAdmin = $this->user()?->isAdmin() ?? false;
 
-        $classRules = ['string', 'max:120'];
+        $classRules = ['string', Rule::in(ClassroomOptions::classes())];
         array_unshift($classRules, $isAdmin ? 'required' : 'nullable');
 
         return [
             'class_name' => $classRules,
-            'section' => ['nullable', 'string', 'max:50'],
+            'section' => ['nullable', 'string', Rule::in(ClassroomOptions::sections())],
         ];
     }
 }

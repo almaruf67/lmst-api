@@ -9,6 +9,7 @@ use App\Models\Student;
 use App\Models\User;
 use App\Policies\AttendancePolicy;
 use App\Policies\StudentPolicy;
+use App\Policies\UserPolicy;
 use Dedoc\Scramble\Scramble;
 use Dedoc\Scramble\Support\Generator\OpenApi;
 use Dedoc\Scramble\Support\Generator\SecurityScheme;
@@ -33,6 +34,7 @@ class AppServiceProvider extends ServiceProvider
     {
         Gate::policy(Student::class, StudentPolicy::class);
         Gate::policy(Attendance::class, AttendancePolicy::class);
+        Gate::policy(User::class, UserPolicy::class);
 
         $this->registerMonitoringGates();
 

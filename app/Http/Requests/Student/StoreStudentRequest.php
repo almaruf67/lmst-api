@@ -6,7 +6,9 @@ namespace App\Http\Requests\Student;
 
 use App\Models\Student;
 use App\Models\User;
+use App\Support\ClassroomOptions;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreStudentRequest extends FormRequest
 {
@@ -44,8 +46,8 @@ class StoreStudentRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:120'],
             'student_id' => ['required', 'string', 'max:50', 'unique:students,student_id'],
-            'class_name' => ['required', 'string', 'max:120'],
-            'section' => ['nullable', 'string', 'max:50'],
+            'class_name' => ['required', 'string', Rule::in(ClassroomOptions::classes())],
+            'section' => ['nullable', 'string', Rule::in(ClassroomOptions::sections())],
             'notes' => ['nullable', 'string'],
             'primary_teacher_id' => ['nullable', 'exists:users,id'],
             'photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png', 'max:2048'],

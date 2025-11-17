@@ -32,7 +32,7 @@ it('allows admins to create students with optimized photos', function (): void {
         'photo' => UploadedFile::fake()->image('student.jpg', 800, 800),
     ];
 
-    $response = $this->postJson('/api/students', $payload);
+    $response = $this->postJson(api('students'), $payload);
 
     $response->assertCreated()
         ->assertJsonPath('data.name', 'John Carter')
@@ -72,18 +72,18 @@ it('restricts teachers to their own class roster', function (): void {
 
     Sanctum::actingAs($teacherA);
 
-    $listResponse = $this->getJson('/api/students');
+    $listResponse = $this->getJson(api('students'));
     $listResponse->assertOk();
     expect(collect($listResponse->json('data.students'))->pluck('id'))
         ->toContain($classAStudent->id)
         ->not->toContain($classBStudent->id);
 
-    $this->getJson("/api/students/{$classBStudent->id}")
+    $this->getJson(api("students/{$classBStudent->id}"))
         ->assertForbidden();
 
     Sanctum::actingAs($teacherB);
 
-    $this->getJson("/api/students/{$classAStudent->id}")
+    $this->getJson(api("students/{$classAStudent->id}"))
         ->assertForbidden();
 });
 
@@ -94,7 +94,7 @@ it('validates student payloads', function (): void {
 
     Sanctum::actingAs($admin);
 
-    $response = $this->postJson('/api/students', [
+    $response = $this->postJson(api('students'), [
         'name' => '',
         'student_id' => '',
         'class_name' => '',
@@ -125,7 +125,7 @@ it('returns class rosters with attendance history for admins', function (): void
 
     Sanctum::actingAs($admin);
 
-    $response = $this->getJson('/api/class-rosters?class_name=Grade%205&section=A');
+    $response = $this->getJson(api('class-rosters?class_name=Grade%205&section=A'));
 
     $response->assertOk()
         ->assertJsonPath('data.class_name', 'Grade 5')
@@ -157,7 +157,7 @@ it('limits teachers to their assigned class when requesting rosters', function (
 
     Sanctum::actingAs($teacher);
 
-    $response = $this->getJson('/api/class-rosters?class_name=Grade%206&section=A');
+    $response = $this->getJson(api('class-rosters?class_name=Grade%206&section=A'));
 
     $response->assertOk()
         ->assertJsonPath('data.class_name', 'Grade 4')

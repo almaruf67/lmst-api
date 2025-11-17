@@ -13,7 +13,7 @@ it('logs in with valid credentials', function (): void {
     /** @var TestCase $this */
     $user = User::factory()->admin()->create();
 
-    $response = $this->postJson('/api/login', [
+    $response = $this->postJson(api('login'), [
         'email' => $user->email,
         'password' => 'password',
     ]);
@@ -36,7 +36,7 @@ it('returns error with invalid credentials', function (): void {
     /** @var TestCase $this */
     $user = User::factory()->admin()->create();
 
-    $response = $this->postJson('/api/login', [
+    $response = $this->postJson(api('login'), [
         'email' => $user->email,
         'password' => 'wrong-password',
     ]);
@@ -50,7 +50,7 @@ it('refreshes token successfully', function (): void {
     $user = User::factory()->admin()->create();
     $tokens = loginAndGetTokens($this, $user);
 
-    $refreshResponse = $this->postJson('/api/refresh', [
+    $refreshResponse = $this->postJson(api('refresh'), [
         'refresh_token' => $tokens['refresh_token'],
     ]);
 
@@ -74,7 +74,7 @@ it('revokes token on logout', function (): void {
     $tokens = loginAndGetTokens($this, $user);
 
     $logoutResponse = $this->withToken($tokens['access_token'])
-        ->postJson('/api/logout');
+        ->postJson(api('logout'));
 
     $logoutResponse->assertOk()
         ->assertJsonPath('message', 'Logged out');
@@ -89,7 +89,7 @@ it('returns authenticated user data', function (): void {
     $tokens = loginAndGetTokens($this, $user);
 
     $meResponse = $this->withToken($tokens['access_token'])
-        ->getJson('/api/me');
+        ->getJson(api('me'));
 
     $meResponse->assertOk()
         ->assertJsonPath('data.id', $user->id)
@@ -104,7 +104,7 @@ it('returns authenticated user data', function (): void {
  */
 function loginAndGetTokens(TestCase $testCase, User $user): array
 {
-    $response = $testCase->postJson('/api/login', [
+    $response = $testCase->postJson(api('login'), [
         'email' => $user->email,
         'password' => 'password',
     ]);

@@ -35,7 +35,7 @@ it('allows admins to record bulk attendance', function (): void {
         })->all(),
     ];
 
-    $response = $this->postJson('/api/attendance/bulk', $payload);
+    $response = $this->postJson(api('attendance/bulk'), $payload);
 
     $response->assertOk()
         ->assertJsonPath('data.attendances.0.student.id', $students->first()->id);
@@ -63,7 +63,7 @@ it('prevents unassigned teachers from recording attendance', function (): void {
 
     Sanctum::actingAs($teacher);
 
-    $response = $this->postJson('/api/attendance/bulk', [
+    $response = $this->postJson(api('attendance/bulk'), [
         'attendance_date' => now()->toDateString(),
         'records' => [
             [
@@ -97,7 +97,7 @@ it('prevents teachers from recording attendance for other classes', function ():
 
     Sanctum::actingAs($teacher);
 
-    $response = $this->postJson('/api/attendance/bulk', [
+    $response = $this->postJson(api('attendance/bulk'), [
         'attendance_date' => now()->toDateString(),
         'records' => [
             [
@@ -147,7 +147,7 @@ it('scopes monthly reports to the teacher class', function (): void {
 
     Sanctum::actingAs($teacher);
 
-    $response = $this->getJson('/api/reports/attendance/monthly?month='.now()->format('Y-m'));
+    $response = $this->getJson(api('reports/attendance/monthly?month='.now()->format('Y-m')));
 
     $response->assertOk()
         ->assertJsonPath('data.summary.total_records', 1)
@@ -172,7 +172,7 @@ it('caches monthly report responses per scope', function (): void {
 
     Sanctum::actingAs($admin);
 
-    $firstResponse = $this->getJson('/api/reports/attendance/monthly?month='.now()->format('Y-m'));
+    $firstResponse = $this->getJson(api('reports/attendance/monthly?month='.now()->format('Y-m')));
 
     $firstResponse->assertOk()
         ->assertJsonPath('data.summary.total_records', 1);
@@ -184,7 +184,7 @@ it('caches monthly report responses per scope', function (): void {
         'recorded_by' => $admin->id,
     ]);
 
-    $secondResponse = $this->getJson('/api/reports/attendance/monthly?month='.now()->format('Y-m'));
+    $secondResponse = $this->getJson(api('reports/attendance/monthly?month='.now()->format('Y-m')));
 
     $secondResponse->assertOk()
         ->assertJsonPath('data.summary.total_records', 1);
@@ -207,11 +207,11 @@ it('invalidates cached monthly report when attendance is recorded', function ():
 
     Sanctum::actingAs($admin);
 
-    $this->getJson('/api/reports/attendance/monthly?month='.now()->format('Y-m'))
+    $this->getJson(api('reports/attendance/monthly?month='.now()->format('Y-m')))
         ->assertOk()
         ->assertJsonPath('data.summary.total_records', 1);
 
-    $this->postJson('/api/attendance/bulk', [
+    $this->postJson(api('attendance/bulk'), [
         'attendance_date' => now()->toDateString(),
         'records' => [
             [
@@ -221,7 +221,7 @@ it('invalidates cached monthly report when attendance is recorded', function ():
         ],
     ])->assertOk();
 
-    $this->getJson('/api/reports/attendance/monthly?month='.now()->format('Y-m'))
+    $this->getJson(api('reports/attendance/monthly?month='.now()->format('Y-m')))
         ->assertOk()
         ->assertJsonPath('data.summary.total_records', 2);
 });

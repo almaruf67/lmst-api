@@ -16,14 +16,13 @@ it('returns dashboard summary for admin', function (): void {
 
     Sanctum::actingAs($admin);
 
-    $response = $this->getJson('/api/dashboard/summary');
+    $response = $this->getJson(api('dashboard/summary'));
 
     $response->assertOk()
         ->assertJsonStructure([
-            'success',
             'message',
             'data' => ['date', 'total', 'totals_by_status', 'present_percentage'],
-            'code',
+            'version',
         ]);
 });
 
@@ -32,13 +31,12 @@ it('returns dashboard summary for teacher scope', function (): void {
 
     Sanctum::actingAs($teacher);
 
-    $response = $this->getJson('/api/dashboard/summary');
+    $response = $this->getJson(api('dashboard/summary'));
 
     $response->assertOk()
         ->assertJsonStructure([
-            'success',
             'message',
             'data' => ['date', 'total', 'totals_by_status', 'present_percentage'],
-            'code',
+            'version',
         ]);
 });

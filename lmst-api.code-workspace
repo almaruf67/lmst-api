@@ -4,6 +4,12 @@
 			"path": "."
 		},
 		{
+			"path": "../../../../home/almaruf67/Codes/Nuxt/lmst-front"
+		},
+		{
+			"path": "../../../../home/almaruf67/Codes/Nuxt/job-portal-admin"
+		},
+		{
 			"path": "../job-portal-api"
 		}
 	],

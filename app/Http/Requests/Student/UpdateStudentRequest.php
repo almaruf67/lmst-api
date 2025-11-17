@@ -6,6 +6,7 @@ namespace App\Http\Requests\Student;
 
 use App\Models\Student;
 use App\Models\User;
+use App\Support\ClassroomOptions;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -57,8 +58,8 @@ class UpdateStudentRequest extends FormRequest
                 'max:50',
                 Rule::unique('students', 'student_id')->ignore($student?->id),
             ],
-            'class_name' => ['sometimes', 'string', 'max:120'],
-            'section' => ['nullable', 'string', 'max:50'],
+            'class_name' => ['sometimes', 'string', Rule::in(ClassroomOptions::classes())],
+            'section' => ['nullable', 'string', Rule::in(ClassroomOptions::sections())],
             'notes' => ['nullable', 'string'],
             'primary_teacher_id' => ['nullable', 'exists:users,id'],
             'photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png', 'max:2048'],

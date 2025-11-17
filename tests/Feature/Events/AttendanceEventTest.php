@@ -25,7 +25,7 @@ it('dispatches the BulkAttendanceRecorded event after successful bulk capture', 
 
     Sanctum::actingAs($admin);
 
-    postJson('/api/attendance/bulk', [
+    postJson(api('attendance/bulk'), [
         'attendance_date' => now()->toDateString(),
         'records' => $students->map(fn (Student $student): array => [
             'student_id' => $student->id,
@@ -51,7 +51,7 @@ it('queues the SendAttendanceRecordedNotification listener', function (): void {
 
     Sanctum::actingAs($admin);
 
-    postJson('/api/attendance/bulk', [
+    postJson(api('attendance/bulk'), [
         'attendance_date' => now()->toDateString(),
         'records' => $students->map(fn (Student $student): array => [
             'student_id' => $student->id,

@@ -32,9 +32,9 @@ it('prevents duplicate attendance rows for the same student and date', function 
         ],
     ];
 
-    postJson('/api/attendance/bulk', $payload)->assertOk();
+    postJson(api('attendance/bulk'), $payload)->assertOk();
 
-    postJson('/api/attendance/bulk', [
+    postJson(api('attendance/bulk'), [
         'attendance_date' => $payload['attendance_date'],
         'records' => [
             [
@@ -74,7 +74,7 @@ it('filters monthly reports to the teacher class, even when requesting another c
 
     Sanctum::actingAs($teacher);
 
-    $response = getJson('/api/reports/attendance/monthly?month='.now()->format('Y-m').'&class_name=Grade%206');
+    $response = getJson(api('reports/attendance/monthly?month='.now()->format('Y-m').'&class_name=Grade%206'));
 
     $response->assertOk()
         ->assertJsonPath('data.summary.total_records', 1)
@@ -87,7 +87,7 @@ it('caches dashboard summaries for repeat requests', function (): void {
     $admin = User::factory()->admin()->create();
     Sanctum::actingAs($admin);
 
-    $first = getJson('/api/dashboard/summary')->assertOk();
+    $first = getJson(api('dashboard/summary'))->assertOk();
     $firstTotal = $first->json('data.total');
 
     Attendance::factory()->create([
@@ -95,7 +95,7 @@ it('caches dashboard summaries for repeat requests', function (): void {
         'status' => AttendanceStatus::Present->value,
     ]);
 
-    $second = getJson('/api/dashboard/summary')->assertOk();
+    $second = getJson(api('dashboard/summary'))->assertOk();
     $second->assertJsonPath('data.total', $firstTotal);
 });
 
@@ -107,9 +107,9 @@ it('invalidates cached dashboard summaries when recording attendance through the
 
     Sanctum::actingAs($admin);
 
-    getJson('/api/dashboard/summary')->assertOk();
+    getJson(api('dashboard/summary'))->assertOk();
 
-    postJson('/api/attendance/bulk', [
+    postJson(api('attendance/bulk'), [
         'attendance_date' => now()->toDateString(),
         'records' => [
             [
@@ -119,7 +119,7 @@ it('invalidates cached dashboard summaries when recording attendance through the
         ],
     ])->assertOk();
 
-    getJson('/api/dashboard/summary')
+    getJson(api('dashboard/summary'))
         ->assertOk()
         ->assertJsonPath('data.total', 1);
 });
