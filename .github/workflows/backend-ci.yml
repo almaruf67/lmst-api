@@ -1,0 +1,86 @@
+name: Backend CI
+
+on:
+    push:
+        paths:
+            - ".github/workflows/backend-ci.yml"
+            - "app/**"
+            - "bootstrap/**"
+            - "config/**"
+            - "database/**"
+            - "routes/**"
+            - "tests/**"
+            - "composer.json"
+            - "composer.lock"
+    pull_request:
+        paths:
+            - ".github/workflows/backend-ci.yml"
+            - "app/**"
+            - "bootstrap/**"
+            - "config/**"
+            - "database/**"
+            - "routes/**"
+            - "tests/**"
+            - "composer.json"
+            - "composer.lock"
+
+jobs:
+    test:
+        name: Lint & Test (Laravel)
+        runs-on: ubuntu-latest
+        env:
+            APP_ENV: testing
+            APP_DEBUG: "false"
+            APP_URL: http://localhost
+            BROADCAST_DRIVER: log
+            CACHE_DRIVER: array
+            FILESYSTEM_DISK: public
+            LOG_CHANNEL: stack
+            QUEUE_CONNECTION: sync
+            SESSION_DRIVER: array
+            DB_CONNECTION: sqlite
+            DB_DATABASE: ${{ github.workspace }}/database/database.sqlite
+            REVERB_SERVER_HOST: 127.0.0.1
+            REVERB_SERVER_PORT: 8080
+            REVERB_SERVER_SCHEME: http
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Setup PHP 8.3
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: 8.3
+                  extensions: mbstring, intl, pdo_sqlite, sqlite3, bcmath
+                  coverage: none
+
+            - name: Cache Composer dependencies
+              uses: actions/cache@v4
+              with:
+                  path: vendor
+                  key: composer-${{ hashFiles('composer.lock') }}
+                  restore-keys: |
+                      composer-
+
+            - name: Install Composer dependencies
+              run: composer install --no-ansi --no-interaction --prefer-dist --no-progress
+
+            - name: Copy environment file
+              run: cp .env.example .env
+
+            - name: Generate application key
+              run: php artisan key:generate
+
+            - name: Prepare SQLite database
+              run: |
+                  mkdir -p database
+                  touch database/database.sqlite
+
+            - name: Run database migrations
+              run: php artisan migrate --force
+
+            - name: Check code style with Pint
+              run: vendor/bin/pint --test
+
+            - name: Run PHPUnit/Pest suite
+              run: php artisan test

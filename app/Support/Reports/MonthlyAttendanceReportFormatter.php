@@ -27,7 +27,7 @@ class MonthlyAttendanceReportFormatter
         }
 
         fputcsv($handle, []);
-        fputcsv($handle, ['Summary']);
+        fputcsv($handle, ['Totals By Status']);
         foreach (self::summaryTable($report) as $row) {
             fputcsv($handle, $row);
         }
@@ -93,7 +93,7 @@ class MonthlyAttendanceReportFormatter
         $rows = [['Status', 'Total']];
 
         foreach ($report['summary']['totals_by_status'] as $status => $total) {
-            $rows[] = [self::formatStatus($status), $total];
+            $rows[] = [self::rawStatusValue($status), $total];
         }
 
         return $rows;
@@ -151,6 +151,19 @@ class MonthlyAttendanceReportFormatter
         }
 
         return Str::headline((string) $status);
+    }
+
+    private static function rawStatusValue(mixed $status): string
+    {
+        if ($status instanceof AttendanceStatus) {
+            return $status->value;
+        }
+
+        if (is_string($status)) {
+            return $status;
+        }
+
+        return (string) $status;
     }
 
     /**

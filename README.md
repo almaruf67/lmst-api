@@ -8,6 +8,8 @@ A production-ready Laravel API for school attendance management with role-based 
 
 ## 🚀 Quick Start
 
+Follow the commands below to get the API, Redis, queues, Reverb, and the Nuxt SPA talking end-to-end.
+
 ```bash
 # Install dependencies
 composer install
@@ -29,43 +31,27 @@ php artisan test
 
 ---
 
+## 📦 System Installation & Ops
+
+- Ensure PHP 8.3 + necessary extensions, Redis, and Node 20 are installed before running the stack.
+- After running migrations and seeds, keep these processes running in separate terminals: `php artisan serve`, `php artisan reverb:start`, `php artisan queue:work`, and `pnpm dev --port 3009` for the Nuxt frontend.
+- Double-check real-time flows by verifying that dashboard metrics, exports, and notification streaming function against your seeded data.
+
+---
+
 ## 📚 Documentation
 
-**REQUIRED READING** (in this order):
+- This README now contains the canonical setup, architecture, coding standards, and testing guidance for the project.
+- **AI usage notes** live in `AI_WORKFLOW.md`, satisfying the client requirement for documenting how assistants contribute to the build.
 
-1. **[CODING_CONVENTIONS.md](docs/CODING_CONVENTIONS.md)** ⭐ - Your exact coding patterns from lara-api-starter
-   - BaseController pattern (sendResponse/sendError)
-   - Service layer structure with transactions
-   - PHPDoc standards with @context and @pattern
-   - Testing patterns (Arrange-Act-Assert)
+---
 
-2. **[QUICK_REFERENCE.md](docs/QUICK_REFERENCE.md)** ⚡ - Print and keep beside you
-   - Copy-paste code templates
-   - MCP server cheatsheet
-   - Pre-commit checklist
-   - Common mistakes
+## 🧭 Delivery Plan & Coding Patterns
 
-3. **[ARCHITECTURE.md](docs/ARCHITECTURE.md)** - System design decisions
-   - Database schema
-   - API endpoints
-   - Security measures
-   - Caching strategy
-
-4. **[DEVELOPMENT_RULES.md](docs/DEVELOPMENT_RULES.md)** - Strict coding standards
-   - PHP 8.3 requirements
-   - Laravel 12 conventions
-   - Testing requirements
-   - Git commit format
-
-5. **[MCP_SERVERS_GUIDE.md](docs/MCP_SERVERS_GUIDE.md)** - Mandatory MCP usage
-   - Laravel Boost search-docs examples
-   - Context7 for package documentation
-   - Sequential Thinking for complex problems
-
-6. **[IMPLEMENTATION_CHECKLIST.md](docs/IMPLEMENTATION_CHECKLIST.md)** - 121-step tracker
-   - Phase-by-phase breakdown
-   - MCP usage at each step
-   - Final verification checklist
+- **Roadmap**: Work in five passes—Foundation → Students → Attendance → Advanced Features → QA/documentation. Each pass should finish migrations, controllers, services, policies, and tests before moving forward.
+- **Patterns**: Keep controllers thin, push business logic into services with transactions, and always return API responses through `sendResponse`/`sendError` helpers with JSON envelopes.
+- **Execution checklist**: Before merging, ensure MCP searches informed the change, Pint is clean, and focused Pest tests cover the new behavior.
+- **AI traceability**: `AI_WORKFLOW.md` lists the specific assistant prompts that shaped the code when you need to share provenance with the client.
 
 ---
 
@@ -281,7 +267,7 @@ Cache::remember("dashboard:{user_type}:{user_id}", 300, function() { ... });
 @mcp_sequentialthinking "Design bulk attendance algorithm"
 ```
 
-**See [MCP_SERVERS_GUIDE.md](docs/MCP_SERVERS_GUIDE.md) for detailed examples.**
+Need help? Ask Laravel Boost for topic-specific docs, Context7 for package APIs, or Sequential Thinking when the flow spans multiple steps.
 
 ---
 
@@ -325,6 +311,18 @@ Cache::remember("dashboard:{user_type}:{user_id}", 300, function() { ... });
 - **Intervention Image v3**: Photo optimization
 - **Spatie Sluggable**: Automatic slug generation
 - **Redis**: Caching layer
+
+---
+
+## 🔁 CI/CD Pipelines
+
+- **Backend (`lmst-api`)** — `.github/workflows/backend-ci.yml`
+   - Triggers on pushes/PRs touching PHP/Laravel files.
+   - Installs Composer deps, runs SQLite migrations, enforces `vendor/bin/pint --test`, and executes `php artisan test`.
+- **Frontend (`lmst-front`)** — `.github/workflows/frontend-ci.yml`
+   - Uses PNPM 10 + Node 20, then runs `pnpm lint`, `pnpm typecheck`, `pnpm type-check`, and `pnpm build`.
+
+Keep both workflows green before merging to main to ensure the stack remains deployable.
 
 ---
 
