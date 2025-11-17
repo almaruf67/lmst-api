@@ -196,7 +196,7 @@ class StudentService
                 $actor->name,
                 $student->name,
                 $student->class_name,
-                $student->section ? ' - Section ' . $student->section : ''
+                $student->section ? ' - Section '.$student->section : ''
             ),
             priority: 'medium'
         );
@@ -223,7 +223,7 @@ class StudentService
                 '%s updated %s%s.',
                 $actor->name,
                 $student->name,
-                $student->class_name ? ' (' . $student->class_name . ')' : ''
+                $student->class_name ? ' ('.$student->class_name.')' : ''
             ),
             priority: 'low'
         );
