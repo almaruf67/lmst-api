@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests;
 
-use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Illuminate\Foundation\Application;
+use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Laravel\Telescope\Telescope;
 
 abstract class TestCase extends BaseTestCase
@@ -28,14 +28,14 @@ abstract class TestCase extends BaseTestCase
         ];
 
         foreach ($overrides as $key => $value) {
-            putenv($key . '=' . $value);
+            putenv($key.'='.$value);
             $_ENV[$key] = $value;
             $_SERVER[$key] = $value;
         }
 
-        $app = require __DIR__ . '/../bootstrap/app.php';
+        $app = require __DIR__.'/../bootstrap/app.php';
 
-        if (file_exists(__DIR__ . '/../.env.testing')) {
+        if (file_exists(__DIR__.'/../.env.testing')) {
             $app->loadEnvironmentFrom('.env.testing');
         }
 

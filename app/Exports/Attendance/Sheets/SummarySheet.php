@@ -71,7 +71,7 @@ class SummarySheet implements FromArray, ShouldAutoSize, WithEvents, WithStyles,
         return [
             AfterSheet::class => function (AfterSheet $event): void {
                 if ($this->tableHeaderRow > 0) {
-                    $event->sheet->freezePane('A' . ($this->tableHeaderRow + 1));
+                    $event->sheet->freezePane('A'.($this->tableHeaderRow + 1));
                 }
             },
         ];

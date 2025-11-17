@@ -127,15 +127,15 @@ class AttendanceService
             $attendances = $query->get();
 
             $totalsByStatus = collect(AttendanceStatus::cases())->mapWithKeys(
-                static fn(AttendanceStatus $status): array => [$status->value => 0]
+                static fn (AttendanceStatus $status): array => [$status->value => 0]
             );
 
             $summaryStatus = $attendances
-                ->groupBy(fn(Attendance $attendance): string => $this->resolveStatusValue($attendance->status))
+                ->groupBy(fn (Attendance $attendance): string => $this->resolveStatusValue($attendance->status))
                 ->map->count();
             $totalsByStatus = $totalsByStatus->merge($summaryStatus)->toArray();
 
-            $dailyTotals = $attendances->groupBy(fn(Attendance $attendance) => $attendance->attendance_date->toDateString())
+            $dailyTotals = $attendances->groupBy(fn (Attendance $attendance) => $attendance->attendance_date->toDateString())
                 ->map->count()
                 ->toArray();
 
@@ -228,7 +228,7 @@ class AttendanceService
         }
 
         $statusSummary = $records
-            ->groupBy(fn(Attendance $attendance): string => $this->resolveStatusValue($attendance->status))
+            ->groupBy(fn (Attendance $attendance): string => $this->resolveStatusValue($attendance->status))
             ->map->count()
             ->toArray();
 
@@ -268,7 +268,7 @@ class AttendanceService
             $rows = $query->get();
 
             $todayRows = $rows->filter(
-                fn(Attendance $attendance): bool => $attendance->attendance_date->isSameDay($today)
+                fn (Attendance $attendance): bool => $attendance->attendance_date->isSameDay($today)
             );
 
             $totalsByStatus = $this->mergeStatusBuckets($this->initializeStatusBuckets(), $todayRows);
@@ -326,10 +326,10 @@ class AttendanceService
         // Global admin summary
         Cache::forget($this->buildAdminMonthlyKey($month, null, null));
 
-        $classCombos = $students->map(fn(Student $student): array => [
+        $classCombos = $students->map(fn (Student $student): array => [
             'class_name' => $student->class_name,
             'section' => $student->section,
-        ])->unique(fn(array $combo): string => ($combo['class_name'] ?? 'all') . '|' . ($combo['section'] ?? 'all'));
+        ])->unique(fn (array $combo): string => ($combo['class_name'] ?? 'all').'|'.($combo['section'] ?? 'all'));
 
         foreach ($classCombos as $combo) {
             Cache::forget($this->buildAdminMonthlyKey($month, $combo['class_name'], $combo['section']));
@@ -382,18 +382,18 @@ class AttendanceService
         }
 
         if (! empty($classFilter)) {
-            $query->whereHas('student', fn(Builder $studentQuery) => $studentQuery->where('class_name', $classFilter));
+            $query->whereHas('student', fn (Builder $studentQuery) => $studentQuery->where('class_name', $classFilter));
         }
 
         if (! empty($sectionFilter)) {
-            $query->whereHas('student', fn(Builder $studentQuery) => $studentQuery->where('section', $sectionFilter));
+            $query->whereHas('student', fn (Builder $studentQuery) => $studentQuery->where('section', $sectionFilter));
         }
     }
 
     private function initializeStatusBuckets(): array
     {
         return collect(AttendanceStatus::cases())
-            ->mapWithKeys(static fn(AttendanceStatus $status): array => [$status->value => 0])
+            ->mapWithKeys(static fn (AttendanceStatus $status): array => [$status->value => 0])
             ->toArray();
     }
 
@@ -418,7 +418,7 @@ class AttendanceService
         $trend = [];
         for ($day = $start; $day->lte($end); $day = $day->addDay()) {
             $dayRows = $records->filter(
-                static fn(Attendance $attendance): bool => $attendance->attendance_date->isSameDay($day)
+                static fn (Attendance $attendance): bool => $attendance->attendance_date->isSameDay($day)
             );
 
             $totals = $this->mergeStatusBuckets($this->initializeStatusBuckets(), $dayRows);
@@ -443,7 +443,7 @@ class AttendanceService
             return [
                 'label' => Str::headline($status->value),
                 'data' => array_map(
-                    static fn(array $day): int => $day['totals_by_status'][$status->value] ?? 0,
+                    static fn (array $day): int => $day['totals_by_status'][$status->value] ?? 0,
                     $weeklyTrend
                 ),
                 'backgroundColor' => $colors[0],

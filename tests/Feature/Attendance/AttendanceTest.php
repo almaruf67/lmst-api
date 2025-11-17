@@ -78,7 +78,7 @@ it('filters monthly reports to the teacher class, even when requesting another c
 
     Sanctum::actingAs($teacher);
 
-    $response = getJson(api('reports/attendance/monthly?month=' . now()->format('Y-m') . '&class_name=Grade%206'));
+    $response = getJson(api('reports/attendance/monthly?month='.now()->format('Y-m').'&class_name=Grade%206'));
 
     $response->assertOk()
         ->assertJsonPath('data.summary.total_records', 1)
@@ -140,7 +140,7 @@ it('streams a csv download when requesting the monthly report export', function 
 
     Sanctum::actingAs($admin);
 
-    $response = get(api('reports/attendance/monthly?month=' . now()->format('Y-m') . '&format=csv'));
+    $response = get(api('reports/attendance/monthly?month='.now()->format('Y-m').'&format=csv'));
 
     $response->assertOk();
 
@@ -162,11 +162,11 @@ it('returns structured json when exporting the monthly report as json', function
 
     Sanctum::actingAs($admin);
 
-    $response = get(api('reports/attendance/monthly?month=' . now()->format('Y-m') . '&format=json'));
+    $response = get(api('reports/attendance/monthly?month='.now()->format('Y-m').'&format=json'));
 
     $response->assertOk()
         ->assertJson(
-            fn(AssertableJson $json) => $json
+            fn (AssertableJson $json) => $json
                 ->has('metadata')
                 ->has('summary.headers')
                 ->has('summary.rows')
@@ -194,11 +194,11 @@ it('downloads a formatted excel workbook when requesting the monthly report as e
 
     $month = now()->format('Y-m');
 
-    get(api('reports/attendance/monthly?month=' . $month . '&format=excel'))
+    get(api('reports/attendance/monthly?month='.$month.'&format=excel'))
         ->assertOk();
 
     Excel::assertDownloaded(
         sprintf('attendance-report-%s.xlsx', $month),
-        fn($export) => $export instanceof MonthlyAttendanceExport
+        fn ($export) => $export instanceof MonthlyAttendanceExport
     );
 });

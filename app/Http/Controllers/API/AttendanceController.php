@@ -80,7 +80,7 @@ class AttendanceController extends BaseController
         $filename = $this->buildReportFilename($report);
 
         return match ($format) {
-            'excel' => Excel::download(new MonthlyAttendanceExport($report), $filename . '.xlsx'),
+            'excel' => Excel::download(new MonthlyAttendanceExport($report), $filename.'.xlsx'),
             'csv' => $this->streamCsvReport($report, $filename),
             'json' => $this->downloadJsonReport($report, $filename),
             'pdf' => $this->downloadPdfReport($report, $filename),
@@ -99,7 +99,7 @@ class AttendanceController extends BaseController
             static function () use ($csv): void {
                 echo $csv;
             },
-            $filename . '.csv',
+            $filename.'.csv',
             [
                 'Content-Type' => 'text/csv; charset=UTF-8',
             ]
@@ -137,7 +137,7 @@ class AttendanceController extends BaseController
             static function () use ($output): void {
                 echo $output;
             },
-            $filename . '.pdf',
+            $filename.'.pdf',
             [
                 'Content-Type' => 'application/pdf',
             ]
