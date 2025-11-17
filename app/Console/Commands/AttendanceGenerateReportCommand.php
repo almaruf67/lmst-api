@@ -4,14 +4,11 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Enums\AttendanceStatus;
 use App\Enums\UserType;
-use App\Models\Attendance;
 use App\Models\User;
 use App\Services\Attendance\AttendanceService;
-use BackedEnum;
+use App\Support\Reports\MonthlyAttendanceReportFormatter;
 use Illuminate\Console\Command;
-use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Symfony\Component\Console\Command\Command as SymfonyCommand;
@@ -71,13 +68,13 @@ class AttendanceGenerateReportCommand extends Command
                 ]
             );
         } catch (\Throwable $exception) {
-            $this->error('Unable to generate attendance report: ' . $exception->getMessage());
+            $this->error('Unable to generate attendance report: '.$exception->getMessage());
             report($exception);
 
             return SymfonyCommand::FAILURE;
         }
 
-        $csv = $this->buildCsv($report);
+        $csv = MonthlyAttendanceReportFormatter::toCsv($report);
 
         $path = $customPath ? ltrim((string) $customPath, '/\\') : sprintf(
             'reports/attendance-%s-%s.csv',
@@ -93,63 +90,6 @@ class AttendanceGenerateReportCommand extends Command
     }
 
     /**
-     * Transform the report payload into a CSV string.
-     *
-     * @param  array{filters: array{month:string,class_name:?string,section:?string}, summary: array{total_records:int,totals_by_status: array<string,int>}, daily_totals: array<string,int>, records: EloquentCollection<int, Attendance>}  $report
-     * @return string CSV-formatted content ready for storage
-     */
-    private function buildCsv(array $report): string
-    {
-        $handle = fopen('php://temp', 'r+');
-
-        if ($handle === false) {
-            return '';
-        }
-
-        fputcsv($handle, ['Month', $report['filters']['month']]);
-        fputcsv($handle, ['Class', $report['filters']['class_name'] ?? 'All']);
-
-        if ($report['filters']['section']) {
-            fputcsv($handle, ['Section', $report['filters']['section']]);
-        }
-
-        fputcsv($handle, []);
-        fputcsv($handle, ['Date', 'Student Name', 'Student ID', 'Status', 'Note']);
-
-        foreach ($report['records'] as $attendance) {
-            $status = Str::headline($this->resolveStatusValue($attendance->status));
-
-            fputcsv($handle, [
-                $attendance->attendance_date?->toDateString(),
-                $attendance->student?->name,
-                $attendance->student?->student_id,
-                $status,
-                $attendance->note ?? '',
-            ]);
-        }
-
-        fputcsv($handle, []);
-        fputcsv($handle, ['Totals By Status']);
-
-        foreach ($report['summary']['totals_by_status'] as $status => $total) {
-            fputcsv($handle, [Str::headline($status), $total]);
-        }
-
-        fputcsv($handle, []);
-        fputcsv($handle, ['Daily Totals']);
-
-        foreach ($report['daily_totals'] as $date => $total) {
-            fputcsv($handle, [$date, $total]);
-        }
-
-        rewind($handle);
-        $contents = stream_get_contents($handle) ?: '';
-        fclose($handle);
-
-        return $contents;
-    }
-
-    /**
      * Build a synthetic admin user for CLI-driven report generation.
      */
     private function buildSystemAdminUser(): User
@@ -158,21 +98,5 @@ class AttendanceGenerateReportCommand extends Command
         $user->user_type = UserType::Admin;
 
         return $user;
-    }
-
-    /**
-     * Normalize enum-backed statuses to plain string values for CSV output.
-     */
-    private function resolveStatusValue(mixed $status): string
-    {
-        if ($status instanceof BackedEnum) {
-            return $status->value;
-        }
-
-        if ($status instanceof AttendanceStatus) {
-            return $status->value;
-        }
-
-        return (string) $status;
     }
 }

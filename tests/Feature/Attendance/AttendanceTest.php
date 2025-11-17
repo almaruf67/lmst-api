@@ -9,8 +9,10 @@ use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Testing\Fluent\AssertableJson;
 use Laravel\Sanctum\Sanctum;
 
+use function Pest\Laravel\get;
 use function Pest\Laravel\getJson;
 use function Pest\Laravel\postJson;
 
@@ -74,7 +76,7 @@ it('filters monthly reports to the teacher class, even when requesting another c
 
     Sanctum::actingAs($teacher);
 
-    $response = getJson(api('reports/attendance/monthly?month='.now()->format('Y-m').'&class_name=Grade%206'));
+    $response = getJson(api('reports/attendance/monthly?month=' . now()->format('Y-m') . '&class_name=Grade%206'));
 
     $response->assertOk()
         ->assertJsonPath('data.summary.total_records', 1)
@@ -122,4 +124,54 @@ it('invalidates cached dashboard summaries when recording attendance through the
     getJson(api('dashboard/summary'))
         ->assertOk()
         ->assertJsonPath('data.total', 1);
+});
+
+it('streams a csv download when requesting the monthly report export', function (): void {
+    $admin = User::factory()->admin()->create();
+    $student = Student::factory()->create();
+
+    Attendance::factory()->create([
+        'student_id' => $student->id,
+        'attendance_date' => now()->startOfMonth()->toDateString(),
+        'status' => AttendanceStatus::Present->value,
+    ]);
+
+    Sanctum::actingAs($admin);
+
+    $response = get(api('reports/attendance/monthly?month=' . now()->format('Y-m') . '&format=csv'));
+
+    $response->assertOk();
+
+    expect($response->headers->get('content-type'))
+        ->toContain('text/csv')
+        ->and($response->streamedContent())
+        ->toContain('Student Name');
+});
+
+it('returns structured json when exporting the monthly report as json', function (): void {
+    $admin = User::factory()->admin()->create();
+    $student = Student::factory()->create();
+
+    Attendance::factory()->create([
+        'student_id' => $student->id,
+        'attendance_date' => now()->startOfMonth()->toDateString(),
+        'status' => AttendanceStatus::Late->value,
+    ]);
+
+    Sanctum::actingAs($admin);
+
+    $response = get(api('reports/attendance/monthly?month=' . now()->format('Y-m') . '&format=json'));
+
+    $response->assertOk()
+        ->assertJson(
+            fn(AssertableJson $json) => $json
+                ->has('metadata')
+                ->has('summary.headers')
+                ->has('summary.rows')
+                ->has('records.rows', 1)
+                ->etc()
+        );
+
+    expect($response->headers->get('content-disposition'))
+        ->toContain('.json');
 });

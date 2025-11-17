@@ -29,6 +29,7 @@ class AttendanceReportRequest extends FormRequest
             'month' => ['required', 'date_format:Y-m'],
             'class_name' => ['nullable', 'string', 'max:120'],
             'section' => ['nullable', 'string', 'max:50'],
+            'format' => ['nullable', 'string', 'in:excel,csv,pdf,json'],
         ];
     }
 }
