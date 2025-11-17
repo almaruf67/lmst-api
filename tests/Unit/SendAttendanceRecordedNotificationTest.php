@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Enums\UserType;
 use App\Events\BulkAttendanceRecorded;
 use App\Listeners\SendAttendanceRecordedNotification;
+use App\Models\AppNotification;
 use App\Models\Student;
 use App\Models\User;
 use App\Notifications\AttendanceRecordedNotification;
@@ -50,10 +51,14 @@ it('notifies admins and assigned teachers when attendance is recorded', function
         section: 'B',
     );
 
-    $listener = new SendAttendanceRecordedNotification;
+    $listener = app(SendAttendanceRecordedNotification::class);
     $listener->handle($event);
 
     Notification::assertSentTo($secondaryAdmin, AttendanceRecordedNotification::class);
     Notification::assertSentTo($teacher, AttendanceRecordedNotification::class);
     Notification::assertNotSentTo($actor, AttendanceRecordedNotification::class);
+
+    expect(AppNotification::query()->where('user_id', $secondaryAdmin->id)->where('type', 'attendance.recorded')->exists())->toBeTrue();
+    expect(AppNotification::query()->where('user_id', $teacher->id)->where('type', 'attendance.recorded')->exists())->toBeTrue();
+    expect(AppNotification::query()->where('user_id', $actor->id)->where('type', 'attendance.recorded')->exists())->toBeFalse();
 });
