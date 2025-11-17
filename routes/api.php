@@ -1,12 +1,12 @@
 <?php
 
-use App\Http\Controllers\AdminUserController;
+use App\Http\Controllers\API\AdminUserController;
 use App\Http\Controllers\API\AttendanceController;
 use App\Http\Controllers\API\NotificationController;
 use App\Http\Controllers\API\ProfileController;
+use App\Http\Controllers\API\StudentController;
+use App\Http\Controllers\API\TeacherController;
 use App\Http\Controllers\Auth\AuthController;
-use App\Http\Controllers\StudentController;
-use App\Http\Controllers\TeacherController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 

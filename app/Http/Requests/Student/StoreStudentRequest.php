@@ -43,11 +43,21 @@ class StoreStudentRequest extends FormRequest
      */
     public function rules(): array
     {
+        $user = $this->user();
+
+        $classRules = ['required', 'string'];
+        $sectionRules = ['nullable', 'string'];
+
+        if (! $user instanceof User || ! $user->isTeacher()) {
+            $classRules[] = Rule::in(ClassroomOptions::classes());
+            $sectionRules[] = Rule::in(ClassroomOptions::sections());
+        }
+
         return [
             'name' => ['required', 'string', 'max:120'],
             'student_id' => ['required', 'string', 'max:50', 'unique:students,student_id'],
-            'class_name' => ['required', 'string', Rule::in(ClassroomOptions::classes())],
-            'section' => ['nullable', 'string', Rule::in(ClassroomOptions::sections())],
+            'class_name' => $classRules,
+            'section' => $sectionRules,
             'notes' => ['nullable', 'string'],
             'primary_teacher_id' => ['nullable', 'exists:users,id'],
             'photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png', 'max:2048'],

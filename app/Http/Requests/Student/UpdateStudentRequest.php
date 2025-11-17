@@ -49,6 +49,15 @@ class UpdateStudentRequest extends FormRequest
     {
         /** @var Student $student */
         $student = $this->route('student');
+        $user = $this->user();
+
+        $classRules = ['sometimes', 'string'];
+        $sectionRules = ['nullable', 'string'];
+
+        if (! $user instanceof User || ! $user->isTeacher()) {
+            $classRules[] = Rule::in(ClassroomOptions::classes());
+            $sectionRules[] = Rule::in(ClassroomOptions::sections());
+        }
 
         return [
             'name' => ['sometimes', 'string', 'max:120'],
@@ -58,8 +67,8 @@ class UpdateStudentRequest extends FormRequest
                 'max:50',
                 Rule::unique('students', 'student_id')->ignore($student?->id),
             ],
-            'class_name' => ['sometimes', 'string', Rule::in(ClassroomOptions::classes())],
-            'section' => ['nullable', 'string', Rule::in(ClassroomOptions::sections())],
+            'class_name' => $classRules,
+            'section' => $sectionRules,
             'notes' => ['nullable', 'string'],
             'primary_teacher_id' => ['nullable', 'exists:users,id'],
             'photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png', 'max:2048'],

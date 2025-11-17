@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Enums\NotificationAudience;
 use App\Models\AppNotification;
+use App\Models\Student;
 use App\Models\User;
 use App\Services\Notification\NotificationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -187,4 +188,103 @@ it('returns audience breakdowns when requesting counts', function (): void {
         ->assertJsonPath('data.by_audience.admin.unread', 1)
         ->assertJsonPath('data.by_audience.teacher.total', 1)
         ->assertJsonPath('data.by_audience.teacher.unread', 1);
+});
+
+it('notifies the assigned teacher when an admin creates a student', function (): void {
+    /** @var TestCase $this */
+    $admin = User::factory()->admin()->create();
+    $teacher = User::factory()->teacher('Grade 5', 'A')->create();
+
+    Sanctum::actingAs($admin);
+
+    $response = $this->postJson(api('students'), [
+        'name' => 'Lena Ray',
+        'student_id' => 'STD-9001',
+        'class_name' => 'Grade 5',
+        'section' => 'A',
+        'primary_teacher_id' => $teacher->id,
+    ]);
+
+    $response->assertCreated();
+
+    $this->assertDatabaseHas('app_notifications', [
+        'user_id' => $teacher->id,
+        'audience' => NotificationAudience::Teacher->value,
+        'type' => 'student.created',
+    ]);
+});
+
+it('notifies all admins when a teacher creates a student', function (): void {
+    /** @var TestCase $this */
+    $admins = User::factory()->count(2)->admin()->create();
+    $teacher = User::factory()->teacher('Grade 4', 'B')->create();
+
+    Sanctum::actingAs($teacher);
+
+    $response = $this->postJson(api('students'), [
+        'name' => 'Noah Poe',
+        'student_id' => 'STD-9002',
+    ]);
+
+    $response->assertCreated();
+
+    foreach ($admins as $admin) {
+        $this->assertDatabaseHas('app_notifications', [
+            'user_id' => $admin->id,
+            'audience' => NotificationAudience::Admin->value,
+            'type' => 'student.created',
+        ]);
+    }
+});
+
+it('notifies the assigned teacher when an admin updates a student', function (): void {
+    /** @var TestCase $this */
+    $admin = User::factory()->admin()->create();
+    $teacher = User::factory()->teacher('Grade 6', 'C')->create();
+    $student = Student::factory()->create([
+        'class_name' => 'Grade 6',
+        'section' => 'C',
+        'primary_teacher_id' => $teacher->id,
+    ]);
+
+    Sanctum::actingAs($admin);
+
+    $response = $this->putJson(api("students/{$student->id}"), [
+        'name' => 'Updated Name',
+    ]);
+
+    $response->assertOk();
+
+    $this->assertDatabaseHas('app_notifications', [
+        'user_id' => $teacher->id,
+        'audience' => NotificationAudience::Teacher->value,
+        'type' => 'student.updated',
+    ]);
+});
+
+it('notifies all admins when a teacher updates a student', function (): void {
+    /** @var TestCase $this */
+    $admins = User::factory()->count(2)->admin()->create();
+    $teacher = User::factory()->teacher('Grade 3', 'A')->create();
+    $student = Student::factory()->create([
+        'class_name' => 'Grade 3',
+        'section' => 'A',
+        'primary_teacher_id' => $teacher->id,
+    ]);
+
+    Sanctum::actingAs($teacher);
+
+    $response = $this->putJson(api("students/{$student->id}"), [
+        'notes' => 'Updated notes',
+    ]);
+
+    $response->assertOk();
+
+    foreach ($admins as $admin) {
+        $this->assertDatabaseHas('app_notifications', [
+            'user_id' => $admin->id,
+            'audience' => NotificationAudience::Admin->value,
+            'type' => 'student.updated',
+        ]);
+    }
 });

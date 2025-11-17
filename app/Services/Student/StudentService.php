@@ -6,6 +6,7 @@ namespace App\Services\Student;
 
 use App\Models\Student;
 use App\Models\User;
+use App\Services\Notification\NotificationService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Arr;
@@ -21,7 +22,10 @@ use Illuminate\Support\Facades\DB;
  */
 class StudentService
 {
-    public function __construct(private readonly Student $student) {}
+    public function __construct(
+        private readonly Student $student,
+        private readonly NotificationService $notificationService,
+    ) {}
 
     /**
      * Paginate students based on the authenticated user's privileges.
@@ -69,7 +73,7 @@ class StudentService
     {
         $attributes = $this->applyTeacherScope($user, $attributes);
 
-        return DB::transaction(function () use ($attributes): Student {
+        return DB::transaction(function () use ($attributes, $user): Student {
             /** @var UploadedFile|null $photo */
             $photo = $attributes['photo'] ?? null;
             unset($attributes['photo']);
@@ -83,7 +87,13 @@ class StudentService
 
             $student->save();
 
-            return $student->fresh(['primaryTeacher']);
+            $student = $student->fresh(['primaryTeacher']);
+
+            DB::afterCommit(function () use ($student, $user): void {
+                $this->notifyStudentCreated($student, $user);
+            });
+
+            return $student;
         });
     }
 
@@ -96,7 +106,7 @@ class StudentService
     {
         $attributes = $this->applyTeacherScope($user, $attributes);
 
-        return DB::transaction(function () use ($student, $attributes): Student {
+        return DB::transaction(function () use ($student, $attributes, $user): Student {
             /** @var UploadedFile|null $photo */
             $photo = $attributes['photo'] ?? null;
             unset($attributes['photo']);
@@ -109,7 +119,13 @@ class StudentService
 
             $student->save();
 
-            return $student->fresh(['primaryTeacher']);
+            $student = $student->fresh(['primaryTeacher']);
+
+            DB::afterCommit(function () use ($student, $user): void {
+                $this->notifyStudentUpdated($student, $user);
+            });
+
+            return $student;
         });
     }
 
@@ -166,5 +182,100 @@ class StudentService
         }
 
         return $attributes;
+    }
+
+    private function notifyStudentCreated(Student $student, User $actor): void
+    {
+        $this->notifyTeacher(
+            student: $student,
+            actor: $actor,
+            type: 'student.created',
+            title: 'New Student Assigned',
+            message: sprintf(
+                '%s added %s to %s%s.',
+                $actor->name,
+                $student->name,
+                $student->class_name,
+                $student->section ? ' - Section ' . $student->section : ''
+            ),
+            priority: 'medium'
+        );
+
+        if ($actor->isTeacher()) {
+            $this->notificationService->createForAdmins(
+                type: 'student.created',
+                title: 'Teacher added a student',
+                message: sprintf('%s added %s to their roster.', $actor->name, $student->name),
+                data: $this->buildStudentContext($student, $actor),
+                priority: 'low'
+            );
+        }
+    }
+
+    private function notifyStudentUpdated(Student $student, User $actor): void
+    {
+        $this->notifyTeacher(
+            student: $student,
+            actor: $actor,
+            type: 'student.updated',
+            title: 'Student profile updated',
+            message: sprintf(
+                '%s updated %s%s.',
+                $actor->name,
+                $student->name,
+                $student->class_name ? ' (' . $student->class_name . ')' : ''
+            ),
+            priority: 'low'
+        );
+
+        if ($actor->isTeacher()) {
+            $this->notificationService->createForAdmins(
+                type: 'student.updated',
+                title: 'Teacher updated a student',
+                message: sprintf('%s updated %s.', $actor->name, $student->name),
+                data: $this->buildStudentContext($student, $actor),
+                priority: 'low'
+            );
+        }
+    }
+
+    private function notifyTeacher(
+        Student $student,
+        User $actor,
+        string $type,
+        string $title,
+        string $message,
+        string $priority = 'low'
+    ): void {
+        $teacher = $student->primaryTeacher;
+
+        if ($teacher instanceof User && ! $teacher->is($actor)) {
+            $this->notificationService->createForTeacher(
+                teacher: $teacher,
+                type: $type,
+                title: $title,
+                message: $message,
+                data: $this->buildStudentContext($student, $actor),
+                priority: $priority
+            );
+        }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildStudentContext(Student $student, User $actor): array
+    {
+        return [
+            'student_id' => $student->student_id,
+            'student_name' => $student->name,
+            'class_name' => $student->class_name,
+            'section' => $student->section,
+            'actor' => [
+                'id' => $actor->getKey(),
+                'name' => $actor->name,
+                'type' => $actor->user_type?->value,
+            ],
+        ];
     }
 }
